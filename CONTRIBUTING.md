@@ -23,7 +23,7 @@ PSYCTL 프로젝트에 기여하고 싶으시다면 환영합니다! 이 문서�
 
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/your-username/psyctl.git
+git clone https://github.com/modulabs-personalab/psyctl.git
 cd psyctl
 
 # 2. 개발 환경 설정 (Windows)

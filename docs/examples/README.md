@@ -96,9 +96,9 @@ PSYCTL의 다양한 사용 예시와 튜토리얼을 제공합니다.
 
 예시나 튜토리얼에 대한 질문이 있으시면:
 
-1. [GitHub Issues](https://github.com/your-username/psyctl/issues)에서 검색
+1. [GitHub Issues](https://github.com/modulabs-personalab/psyctl/issues)에서 검색
 2. 새로운 이슈 생성
-3. [Discussions](https://github.com/your-username/psyctl/discussions)에서 토론
+3. [Discussions](https://github.com/modulabs-personalab/psyctl/discussions)에서 토론
 
 ## 🤝 기여하기
 
