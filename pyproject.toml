@@ -2,7 +2,10 @@
 name = "psyctl"
 version = "0.1.0"
 description = "LLM Personality Steering Tool"
-authors = [{name = "Rick Choi", email = "rick@caveduck.io"}]
+authors = [ {name = "Rick Choi", email = "rick@caveduck.io"}, 
+            {name = "Dohoon Kwon", email = "lk38ll@gmail.com"},
+            {name = "Changhoon Lee", email = "ggomaseein@gmail.com"}
+          ]
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -20,6 +23,7 @@ dependencies = [
     "seaborn>=0.12.0", # Seaborn
     "loguru>=0.7.0", # 로깅
     "pydantic-settings>=2.10.1",
+    "python-dotenv>=1.0.0", # 환경변수 로드
 ]
 
 [project.optional-dependencies]
@@ -27,6 +31,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
+    "pytest-pdb>=0.2.0",
     "black>=23.0.0",
     "isort>=5.0.0",
     "flake8>=6.0.0",
@@ -54,6 +59,16 @@ python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+addopts = [
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings"
+]
 
 [dependency-groups]
 dev = [
