@@ -128,6 +128,16 @@ psyctl benchmark \
 
 ## 🔧 설정
 
+### 환경 변수 설정
+
+프로젝트 루트에 `.env` 파일을 생성하여 환경 변수를 설정할 수 있습니다:
+
+```bash
+# .env 파일 예시
+PSYCTL_LOG_LEVEL=INFO
+HF_TOKEN=your_huggingface_token_here
+```
+
 ### 로그 레벨 설정
 
 환경 변수나 `.env` 파일을 통해 로그 레벨을 설정할 수 있습니다:
@@ -135,6 +145,14 @@ psyctl benchmark \
 ```bash
 PSYCTL_LOG_LEVEL=DEBUG
 ```
+
+### Hugging Face 토큰 설정
+
+일부 모델에 접근하려면 Hugging Face 토큰이 필요합니다:
+
+1. [Hugging Face 설정 페이지](https://huggingface.co/settings/tokens)에서 토큰을 생성
+2. `.env` 파일에 `HF_TOKEN=your_token_here` 추가
+3. 또는 환경 변수로 설정: `export HF_TOKEN=your_token_here`
 
 ### 출력 디렉토리
 

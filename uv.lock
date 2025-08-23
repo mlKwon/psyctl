@@ -3424,6 +3424,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "python-dotenv" },
     { name = "rich" },
     { name = "safetensors" },
     { name = "scikit-learn", version = "1.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -3443,6 +3444,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "pytest-pdb" },
 ]
 
 [package.dev-dependencies]
@@ -3475,6 +3477,8 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.10.0" },
+    { name = "pytest-pdb", marker = "extra == 'dev'", specifier = ">=0.2.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "safetensors", specifier = ">=0.3.0" },
     { name = "scikit-learn", specifier = ">=1.3.0" },
@@ -3789,6 +3793,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/71/28/67172c96ba684058a4d24ffe144d64783d2a270d0af0d9e792737bddc75c/pytest_mock-3.14.1.tar.gz", hash = "sha256:159e9edac4c451ce77a5cdb9fc5d1100708d2dd4ba3c3df572f14097351af80e", size = 33241, upload-time = "2025-05-26T13:58:45.167Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/05/77b60e520511c53d1c1ca75f1930c7dd8e971d0c4379b7f4b3f9644685ba/pytest_mock-3.14.1-py3-none-any.whl", hash = "sha256:178aefcd11307d874b4cd3100344e7e2d888d9791a6a1d9bfe90fbc1b74fd1d0", size = 9923, upload-time = "2025-05-26T13:58:43.487Z" },
+]
+
+[[package]]
+name = "pytest-pdb"
+version = "0.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/de/49/991577b0f392943a8cac9cfbd5a9a99175eb072f4b95695218c76e38cac2/pytest-pdb-0.3.1.tar.gz", hash = "sha256:5e3a9191056e1be9b9038cddf541d40721ddf370f119b184e0719da830fa7709", size = 4089, upload-time = "2018-07-31T10:25:45.622Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/e6/c7b00dab847d8b987cead103e995947e04580f158224bb730039691f4fbd/pytest_pdb-0.3.1-py2.py3-none-any.whl", hash = "sha256:7426f0cf74f296568c4a2fd0bd4a65e33a7c3a39530964caf9bac55f11e52d8d", size = 3348, upload-time = "2018-07-31T10:25:47.514Z" },
 ]
 
 [[package]]

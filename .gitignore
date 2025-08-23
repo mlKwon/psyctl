@@ -149,3 +149,5 @@ results/
 models/
 checkpoints/
 logs/
+.cursor
+temp
