@@ -235,13 +235,13 @@ class DatasetBuilder:
 
             num_generated += 1
             # Update progress bar description with actual count
-            pbar.set_description(f"Generating context (found {num_generated})")
+            pbar.set_description(f"Generating samples ({num_generated})")
 
             if limit_samples > 0 and num_generated >= limit_samples:
                 break
         pbar.close()
 
-        self.logger.info(f"Finished generating context.")
+        self.logger.info(f"Finished generating samples.")
 
     def _get_answer(
         self,
