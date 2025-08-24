@@ -13,8 +13,8 @@ dependencies = [
     "click>=8.0.0", # CLI 프레임워크
     "rich>=13.0.0", # 터미널 출력 개선
     "pydantic>=2.0.0", # 데이터 검증
-    "torch>=2.5.0", # PyTorch (install CUDA version manually)
-    "transformers>=4.30.0", # Hugging Face Transformers
+    "torch>=2.7.0", # PyTorch with CUDA support
+    "transformers>=4.55.4", # Hugging Face Transformers
     "safetensors>=0.3.0", # SafeTensors
     "datasets>=2.10.0", # Hugging Face Datasets
     "numpy>=1.24.0", # NumPy
@@ -86,3 +86,14 @@ dev = [
     "pytest-cov>=6.2.1",
     "pytest-mock>=3.14.1",
 ]
+
+[tool.uv.sources]
+# Linux/Windows에만 CUDA 12.6 휠을 사용, macOS는 PyPI로 폴백
+torch = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true

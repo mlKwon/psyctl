@@ -1,6 +1,10 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+# Disable PyTorch compiler to avoid Triton issues
+torch._dynamo.config.suppress_errors = True
+torch._dynamo.config.disable = True
+
 
 class P2:
     """
@@ -57,7 +61,7 @@ class P2:
             tokenized = self.tokenizer(
                 prompt, return_tensors="pt", add_special_tokens=True
             )
-
+        
         # 2. prefill이 있다면 assistant 답변의 시작 부분으로 추가
         if prefill:
             prefill_ids = self.tokenizer.encode(

@@ -2,6 +2,7 @@
 """Main CLI entry point for psyctl."""
 
 import click
+import torch
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.traceback import install
@@ -9,6 +10,10 @@ from rich.traceback import install
 from psyctl.commands import benchmark, dataset, extract, steering
 from psyctl.config.settings import Settings
 from psyctl.core.logger import get_logger, setup_logging
+
+# Disable PyTorch compiler to avoid Triton issues
+torch._dynamo.config.suppress_errors = True
+torch._dynamo.config.disable = True
 
 load_dotenv(override=True)
 
