@@ -1,8 +1,13 @@
 # PSYCTL - LLM Personality Steering Tool
 
+> **⚠️ Project Under Development**  
+> This project is currently under development and only supports limited functionality. Please check the release notes for stable features.
+
 A project by [Persona Lab](https://modulabs.co.kr/labs/337) at ModuLabs.
 
 A tool that supports steering LLMs to exhibit specific personalities. The goal is to automatically generate datasets and work with just a model and personality specification.
+
+
 
 ---
 
@@ -293,33 +298,6 @@ for personality in personalities:
     logger.success(f"Created {num_samples} samples for {personality}")
 ```
 
-### 🤝 Help
-
-#### View Help
-
-```bash
-# General help
-psyctl --help
-
-# Specific command help
-psyctl dataset.build.caa --help
-psyctl extract.steering --help
-psyctl steering --help
-psyctl benchmark --help
-```
-
-#### Check Version
-
-```bash
-psyctl --version
-```
-
-#### Common Installation Issues
-
-- **Dependency conflicts**: Run `pip install --upgrade pip` then reinstall
-- **Permission issues**: Use `pip install --user`
-- **Cache issues**: Run `pip cache purge` then reinstall
-
 ---
 
 ## 🔧 Developer Guide
@@ -436,157 +414,6 @@ The project includes PowerShell scripts to automate development tasks:
 - Test execution (pytest)
 - Package installation (`uv pip install -e .`)
 
-#### 3. Commit and Push
-
-```bash
-# Stage changes
-git add .
-
-# Commit
-git commit -m "feat: add new feature description"
-
-# Push
-git push origin feature/your-feature-name
-```
-
-#### 4. Pull Request Creation
-
-Create a Pull Request on GitHub and include:
-- Change description
-- Test results
-- Related issue number
-
-### 📝 Coding Style
-
-#### Python Code Style
-
-- **Black**: Code formatting
-- **isort**: Import sorting
-- **flake8**: Linting
-- **mypy**: Type checking
-
-#### Naming Conventions
-
-- **Classes**: PascalCase (`DatasetBuilder`)
-- **Functions/Variables**: snake_case (`build_caa_dataset`)
-- **Constants**: UPPER_SNAKE_CASE (`DEFAULT_MODEL`)
-- **Modules**: snake_case (`dataset_builder.py`)
-
-#### Documentation
-
-- Write docstrings for all public functions and classes
-- Use Google style docstrings
-- Use type hints
-
-```python
-def build_caa_dataset(self, model: str, personality: str, output_dir: Path) -> None:
-    """Build CAA dataset for given personality traits.
-    
-    Args:
-        model: Model name to use for dataset generation
-        personality: Comma-separated personality traits
-        output_dir: Directory to save the dataset
-        
-    Raises:
-        FileNotFoundError: If model cannot be loaded
-        ValueError: If personality traits are invalid
-    """
-    pass
-```
-
-### 🧪 Testing
-
-#### Test Execution
-
-```bash
-# Run all tests (recommended to use script)
-& .\scripts\test.ps1
-
-# Or run directly
-uv run pytest
-
-# Run specific tests
-uv run pytest tests/test_cli.py
-
-# Run with coverage
-uv run pytest --cov=psyctl --cov-report=html
-```
-
-#### Test Writing Guide
-
-- Test filename: `test_*.py`
-- Test function name: `test_*`
-- Each test should be independent
-- Use mocks to isolate external dependencies
-
-```python
-def test_build_caa_dataset():
-    """Test CAA dataset building functionality."""
-    # Arrange
-    builder = DatasetBuilder()
-    
-    # Act
-    result = builder.build_caa_dataset("test-model", "Extroversion", Path("./test"))
-    
-    # Assert
-    assert result is not None
-```
-
-### 🤝 Contribution Guidelines
-
-#### Issue Reporting
-
-When reporting bugs or requesting features, include:
-- Problem/request description
-- Reproduction steps
-- Expected behavior
-- Actual behavior
-- Environment information (OS, Python version, etc.)
-
-#### Feature Development
-
-1. **Create issue**: Create an issue for the feature to develop
-2. **Create branch**: Use format `feature/issue-number-description`
-3. **Development**: Implement feature and write tests
-4. **Testing**: Ensure all tests pass
-5. **Documentation**: Update README or API documentation
-6. **Create PR**: Create Pull Request
-
-#### Bug Fixes
-
-1. **Check issues**: Check if issue already exists
-2. **Create branch**: Use format `fix/issue-number-description`
-3. **Fix**: Fix bug and add tests
-4. **Verify**: Ensure fix doesn't affect other features
-5. **Create PR**: Create Pull Request
-
-### 📋 Checklist
-
-Before submitting a PR, check the following:
-
-- [ ] Does the code follow coding style?
-- [ ] Do all tests pass?
-- [ ] Are tests written for new features?
-- [ ] Is documentation updated?
-- [ ] Are commit messages clear?
-- [ ] Is PR description sufficient?
-
-### 🚀 Release Process
-
-#### Version Management
-
-- Use **Semantic Versioning** (MAJOR.MINOR.PATCH)
-- Update `version` field in `pyproject.toml`
-- Record changes in `CHANGELOG.md`
-
-#### Release Steps
-
-1. **Development**: Develop on `main` branch
-2. **Testing**: Ensure all tests pass
-3. **Version update**: Update version in `pyproject.toml`
-4. **Create tag**: `git tag v1.0.0`
-5. **Deploy**: Upload to GitHub Releases
-
 ## Key papers
 - [Evaluating and Inducing Personality in Pre-trained Language Models](https://arxiv.org/abs/2206.07550)
 - [Refusal in Language Models Is Mediated by a Single Direction](https://arxiv.org/abs/2406.11717)
@@ -601,6 +428,3 @@ Before submitting a PR, check the following:
 - [Between facets and domains: 10 aspects of the Big Five. Journal of Personality and Social Psychology](https://psycnet.apa.org/fulltext/2007-15390-012.html)
 
 
-## 📄 License
-
-MIT License
