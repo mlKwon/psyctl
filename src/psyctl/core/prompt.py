@@ -87,11 +87,7 @@ class P2:
             max_new_tokens=100,
             do_sample=True,
             temperature=0.7,
-            pad_token_id=(
-                self.tokenizer.eos_token_id
-                if self.tokenizer.eos_token_id
-                else self.tokenizer.pad_token_id
-            ),
+            pad_token_id=self.tokenizer.pad_token_id,
         )
         len_input = tokenized["input_ids"][0].shape[0]
         input_text = self.tokenizer.decode(

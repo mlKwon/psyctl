@@ -320,11 +320,7 @@ class DatasetBuilder:
             max_new_tokens=100,
             do_sample=True,
             temperature=0.7,
-            pad_token_id=(
-                self.tokenizer.eos_token_id
-                if self.tokenizer.eos_token_id
-                else self.tokenizer.pad_token_id
-            ),
+            pad_token_id=self.tokenizer.pad_token_id,
         )
 
         # 3. Decode the generated text
