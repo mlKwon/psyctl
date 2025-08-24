@@ -211,6 +211,71 @@ psyctl benchmark \
   --inventory IPIP-NEO
 ```
 
+#### Python 라이브러리로 사용하기
+
+PSYCTL은 CLI 도구뿐만 아니라 Python 라이브러리로도 사용할 수 있습니다:
+
+```python
+from psyctl import DatasetBuilder, P2, LLMLoader, Settings
+from pathlib import Path
+
+# 설정 로드
+settings = Settings()
+
+# 모델 로더 생성
+loader = LLMLoader()
+
+# 데이터셋 빌더 생성
+builder = DatasetBuilder()
+
+# P2 클래스를 사용한 성격 프롬프트 생성
+model, tokenizer = loader.load_model("google/gemma-3-270m-it")
+p2 = P2(model, tokenizer)
+
+# 성격별 캐릭터 설명 생성
+extroverted_desc = p2.build("Alice", "Extroversion")
+introverted_desc = p2.build("Alice", "Introversion")
+
+print("외향적 Alice:", extroverted_desc)
+print("내향적 Alice:", introverted_desc)
+
+# CAA 데이터셋 생성
+num_samples = builder.build_caa_dataset(
+    model="google/gemma-3-270m-it",
+    personality="Extroversion",
+    output_dir=Path("./dataset"),
+    limit_samples=100
+)
+
+print(f"생성된 샘플 수: {num_samples}")
+```
+
+#### 고급 사용 예시
+
+```python
+import psyctl
+from psyctl import get_logger
+
+# 로거 설정
+logger = get_logger("my_app")
+
+# 여러 성격 특성에 대한 데이터셋 생성
+personalities = ["Extroversion", "Introversion", "Machiavellianism"]
+
+for personality in personalities:
+    logger.info(f"Creating dataset for {personality}")
+    
+    builder = psyctl.DatasetBuilder()
+    num_samples = builder.build_caa_dataset(
+        model="google/gemma-3-270m-it",
+        personality=personality,
+        output_dir=Path(f"./dataset/{personality.lower()}"),
+        limit_samples=50
+    )
+    
+    logger.success(f"Created {num_samples} samples for {personality}")
+```
+
 ### 🤝 도움말
 
 #### 도움말 보기
