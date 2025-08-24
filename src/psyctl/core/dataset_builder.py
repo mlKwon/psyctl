@@ -157,8 +157,8 @@ class DatasetBuilder:
             Exception: If model loading fails
         """
         self.model, self.tokenizer = self.llm_loader.load_model(model_name)
-        self.logger.info(f"Loaded model: {self.model}")
-        self.logger.info(f"Loaded tokenizer: {self.tokenizer}")
+        self.logger.info(f"Loaded model: {model_name}")
+        self.logger.info(f"Loaded tokenizer: {model_name}")
 
     def _load_dataset(self) -> None:
         """
