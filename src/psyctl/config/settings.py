@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # Model settings
     default_model: str = "meta-llama/Llama-3.2-3B-Instruct"
     default_device: str = "auto"  # auto, cpu, cuda
-    
+
     # Hugging Face settings
     hf_token: Optional[str] = None
 
@@ -35,9 +35,9 @@ class Settings(BaseSettings):
     log_file: Optional[Path] = None
 
     model_config = {
-        "env_file": ".env", 
+        "env_file": ".env",
         "env_prefix": "PSYCTL_",
-        "extra": "ignore"  # Ignore extra fields from environment variables
+        "extra": "ignore",  # Ignore extra fields from environment variables
     }
 
     def __init__(self, **kwargs):

@@ -2,12 +2,15 @@
 """Main CLI entry point for psyctl."""
 
 import click
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.traceback import install
 
 from psyctl.commands import benchmark, dataset, extract, steering
 from psyctl.config.settings import Settings
 from psyctl.core.logger import get_logger, setup_logging
+
+load_dotenv(override=True)
 
 # Rich 설정
 install(show_locals=True)

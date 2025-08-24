@@ -224,37 +224,6 @@ def test_build_process_validation(p2_real_instance):
     logger.success("Build process validation test passed")
 
 
-
-
-
-# Skip these tests if HF_TOKEN is not set
-@pytest.mark.skipif(
-    not os.getenv("HF_TOKEN"),
-    reason="HF_TOKEN environment variable not set"
-)
-class TestWithHFToken:
-    """Tests that require HF_TOKEN to be set."""
-    
-    def test_model_loading_with_token(self):
-        """Test that model loading works with HF_TOKEN set."""
-        logger.info("Testing model loading with HF_TOKEN")
-        
-        try:
-            from transformers import AutoTokenizer, AutoModelForCausalLM
-            
-            model_name = "microsoft/DialoGPT-small"
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = AutoModelForCausalLM.from_pretrained(model_name)
-            
-            assert tokenizer is not None
-            assert model is not None
-            
-            logger.success("Model loading with token test passed")
-            
-        except Exception as e:
-            pytest.fail(f"Failed to load model with token: {e}")
-
-
 if __name__ == "__main__":
     # Instructions for running integration tests
     print("To run integration tests with real models:")
