@@ -1,0 +1,16 @@
+include README.md
+include LICENSE
+include pyproject.toml
+include .env.example
+
+recursive-include src/psyctl *.py
+recursive-include src/psyctl/data *
+recursive-include tests *.py
+recursive-include scripts *.ps1
+
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so
+global-exclude .DS_Store
+global-exclude .git*
+global-exclude .env

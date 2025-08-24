@@ -8,6 +8,7 @@ authors = [ {name = "Rick Choi", email = "rick@caveduck.io"},
           ]
 readme = "README.md"
 requires-python = ">=3.9"
+packages = [{include = "psyctl", from = "src"}]
 dependencies = [
     "click>=8.0.0", # CLI 프레임워크
     "rich>=13.0.0", # 터미널 출력 개선
@@ -46,6 +47,9 @@ psyctl = "psyctl.cli:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/psyctl"]
 
 [tool.black]
 line-length = 88
