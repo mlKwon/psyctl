@@ -146,7 +146,6 @@ dataset/
 steering_vector/
 results/
 *.safetensors
-models/
 checkpoints/
 logs/
 .cursor
