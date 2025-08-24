@@ -75,6 +75,11 @@ class P2:
                 [tokenized["attention_mask"], prefill_attention], dim=1
             )
 
+        # Move tensors to the same device as the model
+        device = next(self.model.parameters()).device
+        tokenized["input_ids"] = tokenized["input_ids"].to(device)
+        tokenized["attention_mask"] = tokenized["attention_mask"].to(device)
+
         # 3. 모델 생성
         outputs = self.model.generate(
             input_ids=tokenized["input_ids"],

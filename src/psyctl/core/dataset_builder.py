@@ -308,6 +308,11 @@ class DatasetBuilder:
                 prompt, return_tensors="pt", add_special_tokens=True
             )
 
+        # Move tensors to the same device as the model
+        device = next(self.model.parameters()).device
+        tokenized["input_ids"] = tokenized["input_ids"].to(device)
+        tokenized["attention_mask"] = tokenized["attention_mask"].to(device)
+
         # 2. Generate response
         outputs = self.model.generate(
             input_ids=tokenized["input_ids"],
