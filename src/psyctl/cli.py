@@ -3,7 +3,6 @@
 
 import click
 import torch
-from dotenv import load_dotenv
 from rich.console import Console
 from rich.traceback import install
 
@@ -14,8 +13,6 @@ from psyctl.core.logger import get_logger, setup_logging
 # Disable PyTorch compiler to avoid Triton issues
 torch._dynamo.config.suppress_errors = True
 torch._dynamo.config.disable = True
-
-load_dotenv(override=True)
 
 # Rich 설정
 install(show_locals=True)

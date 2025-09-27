@@ -19,7 +19,7 @@ def get_env(key: str, default=None, cast_type: type = str):
     return value
 
 # Model settings
-DEFAULT_MODEL = get_env("PSYCTL_DEFAULT_MODEL", "meta-llama/Llama-3.2-3B-Instruct")
+DEFAULT_MODEL = get_env("PSYCTL_DEFAULT_MODEL", "gemma-3-270m-it")
 DEFAULT_DEVICE = get_env("PSYCTL_DEFAULT_DEVICE", "auto")
 
 # Hugging Face settings
@@ -38,6 +38,7 @@ OUTPUT_DIR = get_env("PSYCTL_OUTPUT_DIR", Path("./output"), Path)
 DATASET_DIR = get_env("PSYCTL_DATASET_DIR", Path("./dataset"), Path)
 STEERING_VECTOR_DIR = get_env("PSYCTL_STEERING_VECTOR_DIR", Path("./steering_vector"), Path)
 RESULTS_DIR = get_env("PSYCTL_RESULTS_DIR", Path("./results"), Path)
+CACHE_DIR = get_env("PSYCTL_CACHE_DIR", Path("./temp"), Path)
 
 # Logging settings
 LOG_LEVEL = get_env("PSYCTL_LOG_LEVEL", "INFO")
@@ -45,7 +46,7 @@ LOG_FILE = get_env("PSYCTL_LOG_FILE", None, Path)
 
 def create_directories():
     """Create necessary directories."""
-    directories = [OUTPUT_DIR, DATASET_DIR, STEERING_VECTOR_DIR, RESULTS_DIR]
+    directories = [OUTPUT_DIR, DATASET_DIR, STEERING_VECTOR_DIR, RESULTS_DIR, CACHE_DIR]
 
     for directory in directories:
         try:

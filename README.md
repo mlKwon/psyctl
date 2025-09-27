@@ -168,22 +168,42 @@ psyctl benchmark \
 
 ### ⚙️ Configuration
 
-#### Environment Variable Setup
+PSYCTL uses environment variables for configuration. 
 
-You can set environment variables by creating a `.env` file in the project root:
+#### Available Environment Variables
 
-```bash
-# .env file example
-PSYCTL_LOG_LEVEL=INFO
-HF_TOKEN=your_huggingface_token_here
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PSYCTL_DEFAULT_MODEL` | `gemma-3-270m-it` | Default model to use |
+| `PSYCTL_DEFAULT_DEVICE` | `auto` | Device for model inference |
+| `PSYCTL_HF_TOKEN` | None | Hugging Face API token |
+| `HF_TOKEN` | None | Alternative Hugging Face token variable |
+| `PSYCTL_DEFAULT_DATASET_SIZE` | `1000` | Default dataset size |
+| `PSYCTL_DEFAULT_BATCH_SIZE` | `8` | Default batch size |
+| `PSYCTL_DEFAULT_LAYER` | `model.layers[13].mlp.down_proj` | Default layer for extraction |
+| `PSYCTL_STEERING_STRENGTH` | `1.0` | Default steering strength |
+| `PSYCTL_OUTPUT_DIR` | `./output` | Output directory |
+| `PSYCTL_DATASET_DIR` | `./dataset` | Dataset storage directory |
+| `PSYCTL_STEERING_VECTOR_DIR` | `./steering_vector` | Steering vector storage |
+| `PSYCTL_RESULTS_DIR` | `./results` | Results storage |
+| `PSYCTL_CACHE_DIR` | `./temp` | Cache directory for models/datasets |
+| `PSYCTL_LOG_LEVEL` | `INFO` | Logging level |
+| `PSYCTL_LOG_FILE` | None | Log file path (optional) |
+
+#### Setting Environment Variables
+
+**Windows (PowerShell):**
+```powershell
+$env:PSYCTL_DEFAULT_MODEL = "google/gemma-3-270m-it"
+$env:PSYCTL_HF_TOKEN = "your_huggingface_token_here"
+$env:PSYCTL_LOG_LEVEL = "DEBUG"
 ```
 
-#### Log Level Configuration
-
-You can set log levels through environment variables or `.env` file:
-
+**Linux/macOS:**
 ```bash
-PSYCTL_LOG_LEVEL=DEBUG
+export PSYCTL_DEFAULT_MODEL="google/gemma-3-270m-it"
+export PSYCTL_HF_TOKEN="your_huggingface_token_here"
+export PSYCTL_LOG_LEVEL="DEBUG"
 ```
 
 #### Hugging Face Token Setup
@@ -191,16 +211,25 @@ PSYCTL_LOG_LEVEL=DEBUG
 Some models require a Hugging Face token for access:
 
 1. Generate a token from [Hugging Face Settings](https://huggingface.co/settings/tokens)
-2. Add `HF_TOKEN=your_token_here` to `.env` file
-3. Or set as environment variable: `export HF_TOKEN=your_token_here`
+2. Set environment variable:
+   - `$env:PSYCTL_HF_TOKEN="your_token_here"` (Windows)
+   - `export PSYCTL_HF_TOKEN="your_token_here"` (Linux/macOS)
 
-#### Output Directories
+#### Directory Configuration
 
-The following directories are automatically created by default:
-- `./dataset/` - Dataset storage
-- `./steering_vector/` - Steering vector storage
-- `./results/` - Results storage
-- `./output/` - Other output files
+All directories are automatically created when needed. You can customize paths using environment variables:
+
+```powershell
+# Custom directory configuration (Windows)
+$env:PSYCTL_CACHE_DIR = "D:\ml_cache"
+$env:PSYCTL_RESULTS_DIR = "C:\projects\results"
+```
+
+```bash
+# Custom directory configuration (Linux/macOS)
+export PSYCTL_CACHE_DIR="/data/ml_cache"
+export PSYCTL_RESULTS_DIR="/projects/results"
+```
 
 ### 📝 Examples
 
@@ -313,12 +342,15 @@ psyctl/
 │   └── psyctl/                 # Main package
 │       ├── __init__.py
 │       ├── cli.py              # CLI entry point
+│       ├── config.py           # Configuration management
 │       ├── commands/           # Command modules
+│       │   ├── __init__.py
 │       │   ├── dataset.py      # Dataset generation
 │       │   ├── extract.py      # Steering vector extraction
 │       │   ├── steering.py     # Steering experiments
 │       │   └── benchmark.py    # Inventory tests
 │       ├── core/               # Core logic
+│       │   ├── __init__.py
 │       │   ├── dataset_builder.py
 │       │   ├── steering_extractor.py
 │       │   ├── steering_applier.py
@@ -327,23 +359,27 @@ psyctl/
 │       │   ├── utils.py
 │       │   └── logger.py       # Logging configuration
 │       ├── models/             # Model-related
+│       │   ├── __init__.py
 │       │   ├── llm_loader.py
 │       │   └── vector_store.py
-│       ├── data/               # Data-related
-│       │   └── inventories/    # Inventory data
-│       └── config/             # Configuration management
-│           └── settings.py
+│       └── data/               # Data-related
+│           ├── __init__.py
+│           └── inventories/    # Inventory data
+│               ├── __init__.py
+│               └── ipip_neo.py
 ├── tests/                      # Test code
+│   ├── __init__.py
 │   ├── conftest.py
 │   ├── test_cli.py
 │   └── test_commands/
-├── scripts/                    # Development scripts
-│   ├── install-dev.ps1
-│   ├── build.ps1
-│   ├── test.ps1
-│   └── format.ps1
-└── docs/                       # Documentation
-    └── README.md
+│       ├── __init__.py
+│       ├── test_dataset_builder.py
+│       └── test_prompt.py
+└── scripts/                    # Development scripts
+    ├── install-dev.ps1
+    ├── build.ps1
+    ├── test.ps1
+    └── format.ps1
 ```
 
 ### 🔄 Development Workflow

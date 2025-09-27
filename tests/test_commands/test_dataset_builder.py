@@ -4,14 +4,12 @@ import json
 import os
 import pytest
 from pathlib import Path
-from dotenv import load_dotenv
 
 from psyctl.core.dataset_builder import DatasetBuilder
-from psyctl.core.logger import get_logger
+from psyctl.core.logger import get_logger, setup_logging
 
-# Load environment variables from .env file
-load_dotenv(override=True)
-
+# Setup logging to enable custom logger with success method
+setup_logging()
 logger = get_logger("test_dataset_builder")
 
 

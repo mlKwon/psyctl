@@ -5,9 +5,25 @@ from pathlib import Path
 
 from psyctl import config
 
+# Add SUCCESS log level
+SUCCESS_LEVEL = 25
+logging.addLevelName(SUCCESS_LEVEL, 'SUCCESS')
+
+
+class CustomLogger(logging.Logger):
+    """Custom logger with success method."""
+
+    def success(self, message, *args, **kwargs):
+        """Log a success message."""
+        if self.isEnabledFor(SUCCESS_LEVEL):
+            self._log(SUCCESS_LEVEL, message, args, **kwargs)
+
 
 def setup_logging():
     """Setup basic logging."""
+    # Set custom logger class
+    logging.setLoggerClass(CustomLogger)
+
     level = getattr(logging, config.LOG_LEVEL.upper(), logging.INFO)
 
     # Console handler
@@ -39,6 +55,6 @@ def setup_logging():
         logging.getLogger().addHandler(file_handler)
 
 
-def get_logger(name: str = None) -> logging.Logger:
+def get_logger(name: str = None) -> CustomLogger:
     """Get logger instance."""
     return logging.getLogger(name or __name__)

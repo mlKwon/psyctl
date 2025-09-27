@@ -4,8 +4,10 @@ import pytest
 from click.testing import CliRunner
 
 from psyctl.cli import main
-from psyctl.core.logger import get_logger
+from psyctl.core.logger import get_logger, setup_logging
 
+# Setup logging to enable custom logger with success method
+setup_logging()
 logger = get_logger("test_cli")
 
 
