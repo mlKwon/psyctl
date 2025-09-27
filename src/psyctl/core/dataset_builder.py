@@ -33,16 +33,21 @@ References:
 """
 
 import json
+import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Generator, List, Optional
+from typing import Dict, Generator, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import threading
 
 from datasets import load_dataset
 from tqdm import tqdm, trange
+import torch
 
 from psyctl.core.logger import get_logger
 from psyctl.core.prompt import P2
 from psyctl.models.llm_loader import LLMLoader
+from psyctl.config import INFERENCE_BATCH_SIZE, MAX_WORKERS, CHECKPOINT_INTERVAL, ASYNC_IO_ENABLED
 
 
 class DatasetBuilder:
@@ -87,6 +92,8 @@ class DatasetBuilder:
         self.dataset = None
         self.model = None
         self.tokenizer = None
+        self.write_lock = threading.Lock()
+        self.checkpoint_data = []
 
     def build_caa_dataset(
         self, model: str, personality: str, output_dir: Path, limit_samples: int
@@ -330,6 +337,133 @@ class DatasetBuilder:
         )
         return output_text
 
+    def _get_batch_answers(
+        self,
+        batch_contexts: List[Tuple[str, str, str, str]],
+        batch_size: int = None,
+    ) -> List[str]:
+        """
+        Generate personality-specific responses for multiple contexts in batches.
+
+        This method processes multiple contexts simultaneously to improve efficiency
+        by batching model inference operations. It handles tokenization, padding,
+        and generation for multiple prompts at once.
+
+        Args:
+            batch_contexts (List[Tuple[str, str, str, str]]): List of context tuples
+                Each tuple contains: (user_name, char_name, p2, situation)
+            batch_size (int, optional): Batch size for inference. Uses config default if None.
+
+        Returns:
+            List[str]: Generated responses for each context in the batch
+
+        Note:
+            Uses dynamic padding and attention masks to handle variable length inputs
+            efficiently. Falls back to individual processing if batch inference fails.
+        """
+        if batch_size is None:
+            batch_size = INFERENCE_BATCH_SIZE
+
+        if not batch_contexts:
+            return []
+
+        # Prepare prompts for all contexts
+        prompts = []
+        for user_name, char_name, p2, situation in batch_contexts:
+            rp_prompt = [
+                "# Overview",
+                "This is role playing session.",
+                f"Your(Assistant or Model) role is {char_name}. You have to pretend to be {char_name}.",
+                f"User's role is {user_name}.",
+                f"Write short reaction of {char_name} within the situation in one sentence.",
+                "",
+                f"# About {char_name}.",
+                f"{p2}",
+                "",
+                "",
+                "# Situation",
+                f"{situation}",
+            ]
+            prompt = "\n".join(rp_prompt)
+            prompts.append(prompt)
+
+        # Process in batches
+        all_responses = []
+        for i in range(0, len(prompts), batch_size):
+            batch_prompts = prompts[i : i + batch_size]
+
+            try:
+                # Tokenize batch
+                messages_batch = [
+                    [{"role": "user", "content": prompt}] for prompt in batch_prompts
+                ]
+
+                tokenized_inputs = []
+                for messages in messages_batch:
+                    try:
+                        tokenized_input = self.tokenizer.apply_chat_template(
+                            messages,
+                            tokenize=False,
+                            add_generation_prompt=True,
+                            return_tensors=None,
+                        )
+                        tokenized_inputs.append(tokenized_input)
+                    except Exception:
+                        tokenized_inputs.append(batch_prompts[len(tokenized_inputs)])
+
+                # Batch tokenization with padding
+                tokenized = self.tokenizer(
+                    tokenized_inputs,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    add_special_tokens=False,
+                )
+
+                # Move to device
+                device = next(self.model.parameters()).device
+                tokenized["input_ids"] = tokenized["input_ids"].to(device)
+                tokenized["attention_mask"] = tokenized["attention_mask"].to(device)
+
+                # Generate responses
+                with torch.no_grad():
+                    outputs = self.model.generate(
+                        input_ids=tokenized["input_ids"],
+                        attention_mask=tokenized["attention_mask"],
+                        max_new_tokens=100,
+                        do_sample=True,
+                        temperature=0.7,
+                        pad_token_id=self.tokenizer.pad_token_id,
+                        num_return_sequences=1,
+                    )
+
+                # Decode responses
+                batch_responses = []
+                for j, output in enumerate(outputs):
+                    len_input = tokenized["input_ids"][j].shape[0]
+                    output_text = self.tokenizer.decode(
+                        output[len_input:], skip_special_tokens=True
+                    )
+                    batch_responses.append(output_text)
+
+                all_responses.extend(batch_responses)
+
+            except Exception as e:
+                self.logger.warning(f"Batch inference failed, falling back to individual: {e}")
+                # Fallback to individual processing
+                for prompt in batch_prompts:
+                    try:
+                        # Extract context from original batch_contexts
+                        ctx_idx = prompts.index(prompt)
+                        user_name, char_name, p2, situation = batch_contexts[ctx_idx]
+                        response = self._get_answer(user_name, char_name, p2, situation)
+                        all_responses.append(response)
+                    except Exception as fallback_e:
+                        self.logger.error(f"Individual fallback also failed: {fallback_e}")
+                        all_responses.append("")
+
+        return all_responses
+
     def _gen_caa_data(
         self, char_name: str, situation: str, answer_1: str, answer_2: str
     ) -> str:
@@ -384,17 +518,79 @@ class DatasetBuilder:
             Uses UTF-8 encoding and ensures proper JSON formatting with
             non-ASCII character support.
         """
-        with open(output_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(sample, ensure_ascii=False) + "\n")
+        with self.write_lock:
+            with open(output_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(sample, ensure_ascii=False) + "\n")
+
+    async def _save_batch_to_jsonl_async(self, samples: List[Dict[str, str]], output_file: Path) -> None:
+        """
+        Asynchronously save multiple CAA data samples to JSONL file.
+
+        Args:
+            samples (List[Dict[str, str]]): List of samples to save
+            output_file (Path): Path to the output JSONL file
+        """
+        if not ASYNC_IO_ENABLED:
+            for sample in samples:
+                self._save_sample_to_jsonl(sample, output_file)
+            return
+
+        def write_batch():
+            with self.write_lock:
+                with open(output_file, "a", encoding="utf-8") as f:
+                    for sample in samples:
+                        f.write(json.dumps(sample, ensure_ascii=False) + "\n")
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, write_batch)
+
+    def _save_checkpoint(self, output_file: Path, num_generated: int) -> None:
+        """
+        Save checkpoint data for resuming dataset generation.
+
+        Args:
+            output_file (Path): Path to the output JSONL file
+            num_generated (int): Number of samples generated so far
+        """
+        checkpoint_file = output_file.with_suffix('.checkpoint.json')
+        checkpoint_data = {
+            'num_generated': num_generated,
+            'output_file': str(output_file),
+            'timestamp': datetime.now().isoformat()
+        }
+
+        with open(checkpoint_file, 'w', encoding='utf-8') as f:
+            json.dump(checkpoint_data, f, ensure_ascii=False, indent=2)
+
+        self.logger.info(f"Checkpoint saved: {num_generated} samples generated")
+
+    def _load_checkpoint(self, output_file: Path) -> Optional[Dict]:
+        """
+        Load checkpoint data if available.
+
+        Args:
+            output_file (Path): Path to the output JSONL file
+
+        Returns:
+            Optional[Dict]: Checkpoint data if available, None otherwise
+        """
+        checkpoint_file = output_file.with_suffix('.checkpoint.json')
+        if checkpoint_file.exists():
+            try:
+                with open(checkpoint_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                self.logger.warning(f"Failed to load checkpoint: {e}")
+        return None
 
     def _build_caa_dataset(self, output_dir: Path, limit_samples: int) -> int:
         """
-        Core CAA dataset building logic.
+        Core CAA dataset building logic with batch processing.
 
         This is the main implementation of the CAA dataset generation process.
-        It iterates through conversation contexts, generates personality-specific
+        It processes multiple contexts in batches, generates personality-specific
         responses using P2 prompts, creates contrastive pairs, and saves them
-        to a timestamped JSONL file.
+        to a timestamped JSONL file with checkpoint support.
 
         Args:
             output_dir (Path): Directory to save the generated dataset
@@ -404,24 +600,27 @@ class DatasetBuilder:
             int: Number of successfully generated samples
 
         Note:
-            Creates a timestamped output file to avoid overwriting previous datasets.
-            Uses P2 class to generate personality-specific character descriptions
-            and creates contrastive pairs between target personality and neutral personality.
+            Uses batch processing for improved efficiency, checkpoint support
+            for resuming interrupted runs, and async I/O for better performance.
         """
 
-        self.logger.info(f"Building CAA dataset...")
+        self.logger.info(f"Building CAA dataset with batch processing...")
         self.logger.info(f"Limit samples: {limit_samples}")
         self.logger.info(f"Output directory: {output_dir}")
+        self.logger.info(f"Batch size: {INFERENCE_BATCH_SIZE}")
 
         datetime_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_file = output_dir / f"caa_dataset_{datetime_str}.jsonl"
         self.logger.info(f"Output file: {output_file}")
 
-        num_generated = 0
+        # Check for existing checkpoint
+        checkpoint = self._load_checkpoint(output_file)
+        num_generated = checkpoint['num_generated'] if checkpoint else 0
+
+        if checkpoint:
+            self.logger.info(f"Resuming from checkpoint: {num_generated} samples already generated")
 
         # Generate personality-specific character descriptions using P2
-        # Positive: Target personality trait (e.g., "Extroversion")
-        # Neutral: Baseline personality for contrast
         positive_p2 = self.p2.build("Xylo", self.personality)
         neutral_p2 = self.p2.build("Xylo", "Normal")
 
@@ -433,27 +632,126 @@ class DatasetBuilder:
             "Xylo", "{{char}}"
         )
 
+        # Collect contexts in batches
+        context_batch = []
+        batch_size = INFERENCE_BATCH_SIZE // 2  # Each context generates 2 inference calls
+
+        if ASYNC_IO_ENABLED:
+            return asyncio.run(self._build_caa_dataset_async(
+                output_file, limit_samples, num_generated,
+                positive_template, neutral_template, batch_size
+            ))
+        else:
+            return self._build_caa_dataset_sync(
+                output_file, limit_samples, num_generated,
+                positive_template, neutral_template, batch_size
+            )
+
+    def _build_caa_dataset_sync(
+        self, output_file: Path, limit_samples: int, num_generated: int,
+        positive_template: str, neutral_template: str, batch_size: int
+    ) -> int:
+        """Synchronous batch processing implementation."""
+
+        context_batch = []
+
         for context in self._generate_sample_context(limit_samples):
-            # Extract context information
+            if num_generated >= limit_samples > 0:
+                break
+
+            context_batch.append(context)
+
+            if len(context_batch) >= batch_size:
+                num_generated += self._process_context_batch_sync(
+                    context_batch, output_file, positive_template,
+                    neutral_template, num_generated
+                )
+                context_batch = []
+
+                # Save checkpoint
+                if num_generated % CHECKPOINT_INTERVAL == 0:
+                    self._save_checkpoint(output_file, num_generated)
+
+        # Process remaining contexts
+        if context_batch:
+            num_generated += self._process_context_batch_sync(
+                context_batch, output_file, positive_template,
+                neutral_template, num_generated
+            )
+
+        self.logger.info(f"Finished building CAA dataset. Total samples: {num_generated}")
+        return num_generated
+
+    async def _build_caa_dataset_async(
+        self, output_file: Path, limit_samples: int, num_generated: int,
+        positive_template: str, neutral_template: str, batch_size: int
+    ) -> int:
+        """Asynchronous batch processing implementation."""
+
+        context_batch = []
+
+        for context in self._generate_sample_context(limit_samples):
+            if num_generated >= limit_samples > 0:
+                break
+
+            context_batch.append(context)
+
+            if len(context_batch) >= batch_size:
+                num_generated += await self._process_context_batch_async(
+                    context_batch, output_file, positive_template,
+                    neutral_template, num_generated
+                )
+                context_batch = []
+
+                # Save checkpoint
+                if num_generated % CHECKPOINT_INTERVAL == 0:
+                    self._save_checkpoint(output_file, num_generated)
+
+        # Process remaining contexts
+        if context_batch:
+            num_generated += await self._process_context_batch_async(
+                context_batch, output_file, positive_template,
+                neutral_template, num_generated
+            )
+
+        self.logger.info(f"Finished building CAA dataset. Total samples: {num_generated}")
+        return num_generated
+
+    def _process_context_batch_sync(
+        self, context_batch: List[Dict], output_file: Path,
+        positive_template: str, neutral_template: str, start_idx: int
+    ) -> int:
+        """Process a batch of contexts synchronously."""
+
+        # Prepare batch contexts for inference
+        batch_contexts = []
+        for context in context_batch:
             user_name = context["user_name"]
             char_name = context["char_name"]
             situation = context["situation"]
 
-            # Replace placeholder with actual character name
             positive = positive_template.replace("{{char}}", char_name)
             neutral = neutral_template.replace("{{char}}", char_name)
 
-            # Generate responses for both personality types
-            answer_positive = self._get_answer(
-                user_name, char_name, positive, situation, verbose=False
-            )
-            answer_neutral = self._get_answer(
-                user_name, char_name, neutral, situation, verbose=False
-            )
+            # Add both positive and neutral contexts
+            batch_contexts.append((user_name, char_name, positive, situation))
+            batch_contexts.append((user_name, char_name, neutral, situation))
 
-            # Create contrastive training pairs
+        # Get batch responses
+        responses = self._get_batch_answers(batch_contexts)
+
+        # Process responses and create samples
+        samples = []
+        for i, context in enumerate(context_batch):
+            char_name = context["char_name"]
+            situation = context["situation"]
+
+            answer_positive = responses[i * 2]
+            answer_neutral = responses[i * 2 + 1]
+
             sample = {}
-            if num_generated % 2 == 0:
+            sample_idx = start_idx + i
+            if sample_idx % 2 == 0:
                 question = self._gen_caa_data(
                     char_name, situation, answer_positive, answer_neutral
                 )
@@ -468,14 +766,72 @@ class DatasetBuilder:
                 sample["positive"] = "(2"
                 sample["neutral"] = "(1"
 
-            # Save to JSONL file
-            self._save_sample_to_jsonl(sample, output_file)
-            num_generated += 1
+            samples.append(sample)
 
-        self.logger.info(
-            f"Finished building CAA dataset. Total samples: {num_generated}"
+        # Save all samples
+        for sample in samples:
+            self._save_sample_to_jsonl(sample, output_file)
+
+        return len(samples)
+
+    async def _process_context_batch_async(
+        self, context_batch: List[Dict], output_file: Path,
+        positive_template: str, neutral_template: str, start_idx: int
+    ) -> int:
+        """Process a batch of contexts asynchronously."""
+
+        # Prepare batch contexts for inference
+        batch_contexts = []
+        for context in context_batch:
+            user_name = context["user_name"]
+            char_name = context["char_name"]
+            situation = context["situation"]
+
+            positive = positive_template.replace("{{char}}", char_name)
+            neutral = neutral_template.replace("{{char}}", char_name)
+
+            # Add both positive and neutral contexts
+            batch_contexts.append((user_name, char_name, positive, situation))
+            batch_contexts.append((user_name, char_name, neutral, situation))
+
+        # Get batch responses (still synchronous as model inference needs to be)
+        loop = asyncio.get_event_loop()
+        responses = await loop.run_in_executor(
+            None, self._get_batch_answers, batch_contexts
         )
-        return num_generated
+
+        # Process responses and create samples
+        samples = []
+        for i, context in enumerate(context_batch):
+            char_name = context["char_name"]
+            situation = context["situation"]
+
+            answer_positive = responses[i * 2]
+            answer_neutral = responses[i * 2 + 1]
+
+            sample = {}
+            sample_idx = start_idx + i
+            if sample_idx % 2 == 0:
+                question = self._gen_caa_data(
+                    char_name, situation, answer_positive, answer_neutral
+                )
+                sample["question"] = question
+                sample["positive"] = "(1"
+                sample["neutral"] = "(2"
+            else:
+                question = self._gen_caa_data(
+                    char_name, situation, answer_neutral, answer_positive
+                )
+                sample["question"] = question
+                sample["positive"] = "(2"
+                sample["neutral"] = "(1"
+
+            samples.append(sample)
+
+        # Save all samples asynchronously
+        await self._save_batch_to_jsonl_async(samples, output_file)
+
+        return len(samples)
 
 
 # Example usage and testing
