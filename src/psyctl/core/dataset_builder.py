@@ -591,7 +591,7 @@ class DatasetBuilder:
 
         Note:
             Uses batch processing for improved efficiency, checkpoint support
-            for resuming interrupted runs, and async I/O for better performance.
+            for resuming interrupted runs.
         """
 
         self.logger.info(f"Building CAA dataset with batch processing...")
