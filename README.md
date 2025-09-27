@@ -174,14 +174,8 @@ PSYCTL uses environment variables for configuration.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PSYCTL_DEFAULT_MODEL` | `gemma-3-270m-it` | Default model to use |
-| `PSYCTL_DEFAULT_DEVICE` | `auto` | Device for model inference |
 | `PSYCTL_HF_TOKEN` | None | Hugging Face API token |
 | `HF_TOKEN` | None | Alternative Hugging Face token variable |
-| `PSYCTL_DEFAULT_DATASET_SIZE` | `1000` | Default dataset size |
-| `PSYCTL_DEFAULT_BATCH_SIZE` | `8` | Default batch size |
-| `PSYCTL_DEFAULT_LAYER` | `model.layers[13].mlp.down_proj` | Default layer for extraction |
-| `PSYCTL_STEERING_STRENGTH` | `1.0` | Default steering strength |
 | `PSYCTL_OUTPUT_DIR` | `./output` | Output directory |
 | `PSYCTL_DATASET_DIR` | `./dataset` | Dataset storage directory |
 | `PSYCTL_STEERING_VECTOR_DIR` | `./steering_vector` | Steering vector storage |
@@ -194,14 +188,12 @@ PSYCTL uses environment variables for configuration.
 
 **Windows (PowerShell):**
 ```powershell
-$env:PSYCTL_DEFAULT_MODEL = "google/gemma-3-270m-it"
 $env:PSYCTL_HF_TOKEN = "your_huggingface_token_here"
 $env:PSYCTL_LOG_LEVEL = "DEBUG"
 ```
 
 **Linux/macOS:**
 ```bash
-export PSYCTL_DEFAULT_MODEL="google/gemma-3-270m-it"
 export PSYCTL_HF_TOKEN="your_huggingface_token_here"
 export PSYCTL_LOG_LEVEL="DEBUG"
 ```
