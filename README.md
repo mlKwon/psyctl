@@ -193,7 +193,6 @@ PSYCTL uses environment variables for configuration.
 | `PSYCTL_INFERENCE_BATCH_SIZE` | `16` | Batch size for model inference |
 | `PSYCTL_MAX_WORKERS` | `4` | Maximum number of worker threads |
 | `PSYCTL_CHECKPOINT_INTERVAL` | `100` | Save checkpoint every N samples |
-| `PSYCTL_ASYNC_IO_ENABLED` | `true` | Enable asynchronous I/O for better performance |
 
 #### Setting Environment Variables
 
@@ -205,7 +204,6 @@ $env:PSYCTL_LOG_LEVEL = "DEBUG"
 
 # Batch processing optimization
 $env:PSYCTL_INFERENCE_BATCH_SIZE = "32"  # Increase for better GPU utilization
-$env:PSYCTL_ASYNC_IO_ENABLED = "true"    # Enable async I/O
 $env:PSYCTL_CHECKPOINT_INTERVAL = "50"   # Save checkpoints more frequently
 ```
 
@@ -217,7 +215,6 @@ export PSYCTL_LOG_LEVEL="DEBUG"
 
 # Batch processing optimization
 export PSYCTL_INFERENCE_BATCH_SIZE="32"  # Increase for better GPU utilization
-export PSYCTL_ASYNC_IO_ENABLED="true"    # Enable async I/O
 export PSYCTL_CHECKPOINT_INTERVAL="50"   # Save checkpoints more frequently
 ```
 
@@ -227,8 +224,8 @@ Some models require a Hugging Face token for access:
 
 1. Generate a token from [Hugging Face Settings](https://huggingface.co/settings/tokens)
 2. Set environment variable:
-   - `$env:PSYCTL_HF_TOKEN="your_token_here"` (Windows)
-   - `export PSYCTL_HF_TOKEN="your_token_here"` (Linux/macOS)
+   - `$env:HF_TOKEN="your_token_here"` (Windows)
+   - `export HF_TOKEN="your_token_here"` (Linux/macOS)
 
 #### Directory Configuration
 
@@ -263,13 +260,11 @@ $env:PSYCTL_INFERENCE_BATCH_SIZE = "16"
 $env:PSYCTL_INFERENCE_BATCH_SIZE = "8"
 
 # Enable performance features
-$env:PSYCTL_ASYNC_IO_ENABLED = "true"
 $env:PSYCTL_CHECKPOINT_INTERVAL = "100"  # Adjust based on stability needs
 ```
 
 **Performance Tips:**
 - Larger batch sizes improve GPU utilization but require more VRAM
-- Async I/O provides ~20-30% performance improvement for large datasets
 - Checkpoint intervals of 50-100 samples balance performance and recovery
 - Monitor GPU memory usage to find optimal batch size for your hardware
 
@@ -281,7 +276,6 @@ $env:PSYCTL_CHECKPOINT_INTERVAL = "100"  # Adjust based on stability needs
 # 1. Generate dataset for extroversion personality
 # Set batch size for optimal performance
 export PSYCTL_INFERENCE_BATCH_SIZE="16"
-export PSYCTL_ASYNC_IO_ENABLED="true"
 
 psyctl dataset.build.caa \
   --model "meta-llama/Llama-3.2-3B-Instruct" \

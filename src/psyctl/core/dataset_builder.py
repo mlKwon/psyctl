@@ -33,7 +33,6 @@ References:
 """
 
 import json
-import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Generator, List, Optional, Tuple
@@ -47,7 +46,7 @@ import torch
 from psyctl.core.logger import get_logger
 from psyctl.core.prompt import P2
 from psyctl.models.llm_loader import LLMLoader
-from psyctl.config import INFERENCE_BATCH_SIZE, MAX_WORKERS, CHECKPOINT_INTERVAL, ASYNC_IO_ENABLED
+from psyctl.config import INFERENCE_BATCH_SIZE, MAX_WORKERS, CHECKPOINT_INTERVAL
 
 
 class DatasetBuilder:
@@ -522,27 +521,18 @@ class DatasetBuilder:
             with open(output_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(sample, ensure_ascii=False) + "\n")
 
-    async def _save_batch_to_jsonl_async(self, samples: List[Dict[str, str]], output_file: Path) -> None:
+    def _save_batch_to_jsonl(self, samples: List[Dict[str, str]], output_file: Path) -> None:
         """
-        Asynchronously save multiple CAA data samples to JSONL file.
+        Save multiple CAA data samples to JSONL file.
 
         Args:
             samples (List[Dict[str, str]]): List of samples to save
             output_file (Path): Path to the output JSONL file
         """
-        if not ASYNC_IO_ENABLED:
-            for sample in samples:
-                self._save_sample_to_jsonl(sample, output_file)
-            return
-
-        def write_batch():
-            with self.write_lock:
-                with open(output_file, "a", encoding="utf-8") as f:
-                    for sample in samples:
-                        f.write(json.dumps(sample, ensure_ascii=False) + "\n")
-
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, write_batch)
+        with self.write_lock:
+            with open(output_file, "a", encoding="utf-8") as f:
+                for sample in samples:
+                    f.write(json.dumps(sample, ensure_ascii=False) + "\n")
 
     def _save_checkpoint(self, output_file: Path, num_generated: int) -> None:
         """
@@ -636,16 +626,10 @@ class DatasetBuilder:
         context_batch = []
         batch_size = INFERENCE_BATCH_SIZE // 2  # Each context generates 2 inference calls
 
-        if ASYNC_IO_ENABLED:
-            return asyncio.run(self._build_caa_dataset_async(
-                output_file, limit_samples, num_generated,
-                positive_template, neutral_template, batch_size
-            ))
-        else:
-            return self._build_caa_dataset_sync(
-                output_file, limit_samples, num_generated,
-                positive_template, neutral_template, batch_size
-            )
+        return self._build_caa_dataset_sync(
+            output_file, limit_samples, num_generated,
+            positive_template, neutral_template, batch_size
+        )
 
     def _build_caa_dataset_sync(
         self, output_file: Path, limit_samples: int, num_generated: int,
@@ -682,40 +666,6 @@ class DatasetBuilder:
         self.logger.info(f"Finished building CAA dataset. Total samples: {num_generated}")
         return num_generated
 
-    async def _build_caa_dataset_async(
-        self, output_file: Path, limit_samples: int, num_generated: int,
-        positive_template: str, neutral_template: str, batch_size: int
-    ) -> int:
-        """Asynchronous batch processing implementation."""
-
-        context_batch = []
-
-        for context in self._generate_sample_context(limit_samples):
-            if num_generated >= limit_samples > 0:
-                break
-
-            context_batch.append(context)
-
-            if len(context_batch) >= batch_size:
-                num_generated += await self._process_context_batch_async(
-                    context_batch, output_file, positive_template,
-                    neutral_template, num_generated
-                )
-                context_batch = []
-
-                # Save checkpoint
-                if num_generated % CHECKPOINT_INTERVAL == 0:
-                    self._save_checkpoint(output_file, num_generated)
-
-        # Process remaining contexts
-        if context_batch:
-            num_generated += await self._process_context_batch_async(
-                context_batch, output_file, positive_template,
-                neutral_template, num_generated
-            )
-
-        self.logger.info(f"Finished building CAA dataset. Total samples: {num_generated}")
-        return num_generated
 
     def _process_context_batch_sync(
         self, context_batch: List[Dict], output_file: Path,
@@ -769,69 +719,10 @@ class DatasetBuilder:
             samples.append(sample)
 
         # Save all samples
-        for sample in samples:
-            self._save_sample_to_jsonl(sample, output_file)
+        self._save_batch_to_jsonl(samples, output_file)
 
         return len(samples)
 
-    async def _process_context_batch_async(
-        self, context_batch: List[Dict], output_file: Path,
-        positive_template: str, neutral_template: str, start_idx: int
-    ) -> int:
-        """Process a batch of contexts asynchronously."""
-
-        # Prepare batch contexts for inference
-        batch_contexts = []
-        for context in context_batch:
-            user_name = context["user_name"]
-            char_name = context["char_name"]
-            situation = context["situation"]
-
-            positive = positive_template.replace("{{char}}", char_name)
-            neutral = neutral_template.replace("{{char}}", char_name)
-
-            # Add both positive and neutral contexts
-            batch_contexts.append((user_name, char_name, positive, situation))
-            batch_contexts.append((user_name, char_name, neutral, situation))
-
-        # Get batch responses (still synchronous as model inference needs to be)
-        loop = asyncio.get_event_loop()
-        responses = await loop.run_in_executor(
-            None, self._get_batch_answers, batch_contexts
-        )
-
-        # Process responses and create samples
-        samples = []
-        for i, context in enumerate(context_batch):
-            char_name = context["char_name"]
-            situation = context["situation"]
-
-            answer_positive = responses[i * 2]
-            answer_neutral = responses[i * 2 + 1]
-
-            sample = {}
-            sample_idx = start_idx + i
-            if sample_idx % 2 == 0:
-                question = self._gen_caa_data(
-                    char_name, situation, answer_positive, answer_neutral
-                )
-                sample["question"] = question
-                sample["positive"] = "(1"
-                sample["neutral"] = "(2"
-            else:
-                question = self._gen_caa_data(
-                    char_name, situation, answer_neutral, answer_positive
-                )
-                sample["question"] = question
-                sample["positive"] = "(2"
-                sample["neutral"] = "(1"
-
-            samples.append(sample)
-
-        # Save all samples asynchronously
-        await self._save_batch_to_jsonl_async(samples, output_file)
-
-        return len(samples)
 
 
 # Example usage and testing
