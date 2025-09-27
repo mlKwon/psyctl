@@ -13,7 +13,7 @@ from .models.llm_loader import LLMLoader
 from .models.vector_store import VectorStore
 
 # Configuration
-from .config.settings import Settings
+from . import config
 
 # Commands (for CLI usage)
 from .commands import dataset, extract, steering, benchmark
@@ -31,7 +31,7 @@ __all__ = [
     "VectorStore",
     
     # Configuration
-    "Settings",
+    "config",
     
     # Commands
     "dataset",

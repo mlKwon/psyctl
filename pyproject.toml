@@ -12,7 +12,6 @@ packages = [{include = "psyctl", from = "src"}]
 dependencies = [
     "click>=8.0.0", # CLI 프레임워크
     "rich>=13.0.0", # 터미널 출력 개선
-    "pydantic>=2.0.0", # 데이터 검증
     "torch>=2.7.0", # PyTorch with CUDA support
     "transformers>=4.55.4", # Hugging Face Transformers
     "safetensors>=0.3.0", # SafeTensors
@@ -20,12 +19,8 @@ dependencies = [
     "numpy>=1.24.0", # NumPy
     "pandas>=2.0.0", # Pandas
     "scikit-learn>=1.3.0", # Scikit-learn
-    "matplotlib>=3.7.0", # Matplotlib
-    "seaborn>=0.12.0", # Seaborn
-    "loguru>=0.7.0", # 로깅
-    "pydantic-settings>=2.10.1",
-    "python-dotenv>=1.0.0",
-    "accelerate>=1.10.0",
+    "python-dotenv>=1.0.0", # 환경변수 로딩
+    "accelerate>=1.10.0", # Hugging Face Accelerate
 ]
 
 [project.optional-dependencies]

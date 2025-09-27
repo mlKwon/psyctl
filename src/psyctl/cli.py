@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.traceback import install
 
 from psyctl.commands import benchmark, dataset, extract, steering
-from psyctl.config.settings import Settings
+from psyctl import config
 from psyctl.core.logger import get_logger, setup_logging
 
 # Disable PyTorch compiler to avoid Triton issues
@@ -21,9 +21,9 @@ load_dotenv(override=True)
 install(show_locals=True)
 console = Console()
 
-# Setup logging
-settings = Settings()
-setup_logging(settings)
+# Setup logging and directories
+setup_logging()
+config.create_directories()
 logger = get_logger("cli")
 
 

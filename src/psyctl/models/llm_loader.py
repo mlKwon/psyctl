@@ -46,7 +46,7 @@ class LLMLoader:
             self.logger.debug("Loading model...")
             model = AutoModelForCausalLM.from_pretrained(
                 model_name,
-                dtype="auto",
+                torch_dtype="auto",
                 device_map=device if device == "cuda" else None
             )
             
@@ -54,7 +54,7 @@ class LLMLoader:
             self.models[model_name] = model
             self.tokenizers[model_name] = tokenizer
             
-            self.logger.success(f"Successfully loaded model: {model_name}")
+            self.logger.info(f"Successfully loaded model: {model_name}")
             return model, tokenizer
             
         except Exception as e:

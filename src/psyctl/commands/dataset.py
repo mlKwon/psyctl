@@ -47,7 +47,7 @@ def build_caa(model: str, personality: str, output: str, limit_samples: int):
         builder = DatasetBuilder()
         builder.build_caa_dataset(model, personality, Path(output), limit_samples)
 
-        logger.success(f"Dataset built successfully at {output}")
+        logger.info(f"Dataset built successfully at {output}")
         console.print(f"[green]Dataset built successfully at {output}[/green]")
     except Exception as e:
         logger.error(f"Failed to build dataset: {e}")
