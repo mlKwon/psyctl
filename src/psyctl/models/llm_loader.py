@@ -46,7 +46,7 @@ class LLMLoader:
             self.logger.debug("Loading model...")
             model = AutoModelForCausalLM.from_pretrained(
                 model_name,
-                torch_dtype="auto",
+                dtype="auto",
                 device_map=device if device == "cuda" else None
             )
             
