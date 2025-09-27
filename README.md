@@ -174,8 +174,7 @@ PSYCTL uses environment variables for configuration.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PSYCTL_HF_TOKEN` | None | Hugging Face API token |
-| `HF_TOKEN` | None | Alternative Hugging Face token variable |
+| `HF_TOKEN` | None | Hugging Face API token |
 | `PSYCTL_OUTPUT_DIR` | `./output` | Output directory |
 | `PSYCTL_DATASET_DIR` | `./dataset` | Dataset storage directory |
 | `PSYCTL_STEERING_VECTOR_DIR` | `./steering_vector` | Steering vector storage |
@@ -188,13 +187,13 @@ PSYCTL uses environment variables for configuration.
 
 **Windows (PowerShell):**
 ```powershell
-$env:PSYCTL_HF_TOKEN = "your_huggingface_token_here"
+$env:HF_TOKEN = "your_huggingface_token_here"
 $env:PSYCTL_LOG_LEVEL = "DEBUG"
 ```
 
 **Linux/macOS:**
 ```bash
-export PSYCTL_HF_TOKEN="your_huggingface_token_here"
+export HF_TOKEN="your_huggingface_token_here"
 export PSYCTL_LOG_LEVEL="DEBUG"
 ```
 

@@ -23,7 +23,7 @@ DEFAULT_MODEL = get_env("PSYCTL_DEFAULT_MODEL", "gemma-3-270m-it")
 DEFAULT_DEVICE = get_env("PSYCTL_DEFAULT_DEVICE", "auto")
 
 # Hugging Face settings
-HF_TOKEN = get_env("PSYCTL_HF_TOKEN", get_env("HF_TOKEN"))
+HF_TOKEN = get_env("HF_TOKEN")
 
 # Dataset settings
 DEFAULT_DATASET_SIZE = get_env("PSYCTL_DEFAULT_DATASET_SIZE", 1000, int)
