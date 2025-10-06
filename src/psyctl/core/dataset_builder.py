@@ -95,7 +95,7 @@ class DatasetBuilder:
         self.checkpoint_data = []
 
     def build_caa_dataset(
-        self, model: str, personality: str, output_dir: Path, limit_samples: int
+        self, model: str, personality: str, output_dir: Path, limit_samples: int, dataset_name: str = "allenai/soda"
     ) -> int:
         """
         Build CAA dataset for given personality traits.
@@ -108,6 +108,7 @@ class DatasetBuilder:
             personality (str): Target personality trait (e.g., "Extroversion", "Introversion")
             output_dir (Path): Directory to save the generated dataset
             limit_samples (int): Maximum number of samples to generate (0 for unlimited)
+            dataset_name (str): Hugging Face dataset identifier (default: "allenai/soda")
 
         Returns:
             int: Number of generated samples
@@ -128,6 +129,7 @@ class DatasetBuilder:
         self.logger.info(f"Building CAA dataset for model: {model}")
         self.logger.info(f"Personality traits: {personality}")
         self.logger.info(f"Output directory: {output_dir}")
+        self.logger.info(f"Dataset: {dataset_name}")
 
         try:
             # Create output directory
@@ -140,7 +142,7 @@ class DatasetBuilder:
             self.p2 = P2(self.model, self.tokenizer)
 
             # 2. Load dataset
-            self._load_dataset()
+            self._load_dataset(dataset_name)
 
             # 3. Build CAA dataset
             num_samples = self._build_caa_dataset(output_dir, limit_samples)
@@ -166,12 +168,15 @@ class DatasetBuilder:
         self.logger.info(f"Loaded model: {model_name}")
         self.logger.info(f"Loaded tokenizer: {model_name}")
 
-    def _load_dataset(self) -> None:
+    def _load_dataset(self, dataset_name: str = "allenai/soda") -> None:
         """
-        Load the SoDA conversation dataset.
+        Load a conversation dataset from Hugging Face.
 
-        Loads the allenai/soda dataset which contains conversational data
-        with speakers, dialogue, and narrative context.
+        Loads the specified dataset which should contain conversational data
+        with speakers, dialogue, and narrative context fields.
+
+        Args:
+            dataset_name (str): Hugging Face dataset identifier (default: "allenai/soda")
 
         Raises:
             Exception: If dataset loading fails
@@ -190,10 +195,20 @@ class DatasetBuilder:
             self.logger.warning("HF_TOKEN not found in environment variables")
 
         try:
-            dataset_name = "allenai/soda"
             dataset = load_dataset(dataset_name, split="train")
             self.dataset = dataset
             self.logger.info(f"Loaded dataset: {dataset_name}")
+
+            # Validate required fields
+            if len(dataset) > 0:
+                sample = dataset[0]
+                required_fields = ["speakers", "dialogue", "narrative"]
+                missing_fields = [field for field in required_fields if field not in sample]
+                if missing_fields:
+                    self.logger.warning(
+                        f"Dataset may be missing required fields: {missing_fields}. "
+                        f"Expected fields: {required_fields}"
+                    )
         except Exception as e:
             self.logger.error(f"Failed to load dataset: {e}")
             raise

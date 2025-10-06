@@ -29,23 +29,31 @@ logger = get_logger("dataset")
     default=0,
     help="Maximum number of samples to generate",
 )
-def build_caa(model: str, personality: str, output: str, limit_samples: int):
+@click.option(
+    "--dataset",
+    required=False,
+    default="allenai/soda",
+    help="Hugging Face dataset name (e.g., allenai/soda, username/custom-dataset)",
+)
+def build_caa(model: str, personality: str, output: str, limit_samples: int, dataset: str):
     """Build CAA dataset for steering vector extraction."""
     logger.info("Starting CAA dataset build")
     logger.info(f"Model: {model}")
     logger.info(f"Personality: {personality}")
     logger.info(f"Output: {output}")
+    logger.info(f"Dataset: {dataset}")
     logger.info(f"Limit samples: {limit_samples}")
 
     console.print(f"[blue]Building CAA dataset...[/blue]")
     console.print(f"Model: {model}")
     console.print(f"Personality: {personality}")
     console.print(f"Output: {output}")
+    console.print(f"Dataset: {dataset}")
     console.print(f"Limit samples: {limit_samples}")
 
     try:
         builder = DatasetBuilder()
-        builder.build_caa_dataset(model, personality, Path(output), limit_samples)
+        builder.build_caa_dataset(model, personality, Path(output), limit_samples, dataset)
 
         logger.info(f"Dataset built successfully at {output}")
         console.print(f"[green]Dataset built successfully at {output}[/green]")
