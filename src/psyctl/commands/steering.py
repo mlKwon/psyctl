@@ -120,7 +120,7 @@ def apply(
             orthogonal=orthogonal,
         )
 
-        logger.success("Text generation completed")
+        logger.info("Text generation completed")
         console.print("[green]Generated text:[/green]")
         console.print()
         console.print(result)
