@@ -57,24 +57,27 @@ class P2OpenRouter:
             str: Generated personality description
         """
         self.logger.info(f"Building P2 for {char_name} with trait: {personality_trait}")
+        self.logger.debug(f"Using model: {self.model}")
 
         # Step 1: Generate keywords related to personality trait
         keywords_prompt = f"Words related to {personality_trait}? (format: Comma separated words)"
+        self.logger.debug(f"Keywords prompt: {keywords_prompt}")
         _, keywords = self._get_result(keywords_prompt)
+        self.logger.debug(f"Generated keywords: {keywords}")
 
         # Step 2: Generate personality description using keywords
         personality_prompt = f"{keywords} are traits of {char_name}.\n\nDescribe about {char_name}"
         prefill = f"Here's a description of {char_name}, built from the traits suggested by the list:"
+        self.logger.debug(f"Personality prompt: {personality_prompt}")
+        self.logger.debug(f"Prefill: {prefill}")
         _, personality = self._get_result(personality_prompt, prefill=prefill)
+        self.logger.debug(f"Generated personality: {personality}")
 
         self.char_name = char_name
         self.keywords = keywords
         self.personality = personality
         self.keywords_build_prompt = keywords_prompt
         self.personality_build_prompt = personality_prompt
-
-        self.logger.debug(f"Generated keywords: {keywords}")
-        self.logger.debug(f"Generated personality: {personality[:100]}...")
 
         return self.personality
 
@@ -99,7 +102,7 @@ class P2OpenRouter:
                 prompt=full_prompt,
                 model=self.model,
                 max_tokens=100,
-                temperature=0.7,
+                temperature=0,
             )
 
             # If prefill was used, the output already contains it

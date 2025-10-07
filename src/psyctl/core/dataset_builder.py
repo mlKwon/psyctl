@@ -81,7 +81,7 @@ class DatasetBuilder:
         _build_caa_dataset: Core dataset building logic
     """
 
-    def __init__(self, use_openrouter: bool = False, openrouter_api_key: str = None, openrouter_model: str = None, openrouter_max_workers: int = 1, caa_question_template: str = None, roleplay_prompt_template: str = None):
+    def __init__(self, use_openrouter: bool = False, openrouter_api_key: str = None, openrouter_max_workers: int = 1, caa_question_template: str = None, roleplay_prompt_template: str = None):
         """
         Initialize DatasetBuilder with required components.
 
@@ -91,16 +91,15 @@ class DatasetBuilder:
         Args:
             use_openrouter (bool): Whether to use OpenRouter API instead of local model
             openrouter_api_key (str): OpenRouter API key (required if use_openrouter=True)
-            openrouter_model (str): OpenRouter model identifier
             openrouter_max_workers (int): Number of parallel workers for OpenRouter (1 = sequential)
             caa_question_template (str): Path to custom Jinja2 template for CAA questions (optional)
             roleplay_prompt_template (str): Path to custom Jinja2 template for roleplay prompts (optional)
         """
         self.use_openrouter = use_openrouter
         self.openrouter_api_key = openrouter_api_key
-        self.openrouter_model = openrouter_model
         self.openrouter_max_workers = openrouter_max_workers
         self.openrouter_client = None
+        self.active_model = None  # Store the active model being used
 
         self.llm_loader = LLMLoader()
         self.p2 = None
@@ -112,7 +111,7 @@ class DatasetBuilder:
         self.checkpoint_data = []
 
         # Generation parameters (will be set in build_caa_dataset)
-        self.temperature = 0.3
+        self.temperature = 0
         self.top_k = None
         self.top_p = None
         self.max_tokens = 100
@@ -133,7 +132,7 @@ class DatasetBuilder:
 
     def build_caa_dataset(
         self, model: str, personality: str, output_dir: Path, limit_samples: int, dataset_name: str = "allenai/soda",
-        temperature: float = 0.3, top_k: int = None, top_p: float = None, max_tokens: int = 100
+        temperature: float = 0, top_k: int = None, top_p: float = None, max_tokens: int = 100
     ) -> Path:
         """
         Build CAA dataset for given personality traits.
@@ -147,7 +146,7 @@ class DatasetBuilder:
             output_dir (Path): Directory to save the generated dataset
             limit_samples (int): Maximum number of samples to generate (0 for unlimited)
             dataset_name (str): Hugging Face dataset identifier (default: "allenai/soda")
-            temperature (float): Sampling temperature for generation (default: 0.3)
+            temperature (float): Sampling temperature for generation (default: 0)
             top_k (int): Top-k sampling parameter (default: None)
             top_p (float): Top-p (nucleus) sampling parameter (default: None)
             max_tokens (int): Maximum tokens to generate per response (default: 100)
@@ -189,10 +188,14 @@ class DatasetBuilder:
 
             # 1. Load model or initialize OpenRouter client
             if self.use_openrouter:
-                self.logger.info(f"Using OpenRouter API with model: {self.openrouter_model}")
+                self.active_model = model
+                self.logger.info(f"Using OpenRouter API with model: {self.active_model}")
+                self.logger.debug(f"OpenRouter max workers: {self.openrouter_max_workers}")
                 self.openrouter_client = OpenRouterClient(api_key=self.openrouter_api_key)
-                self.p2 = P2OpenRouter(client=self.openrouter_client, model=self.openrouter_model)
+                self.logger.debug(f"Initializing P2OpenRouter with model: {self.active_model}")
+                self.p2 = P2OpenRouter(client=self.openrouter_client, model=self.active_model)
             else:
+                self.active_model = model
                 self._load_model(model)
                 self.p2 = P2(self.model, self.tokenizer)
 
@@ -529,7 +532,7 @@ class DatasetBuilder:
             try:
                 _, output_text = self.openrouter_client.generate(
                     prompt=prompt,
-                    model=self.openrouter_model,
+                    model=self.active_model,
                     max_tokens=self.max_tokens,
                     temperature=self.temperature,
                     top_k=self.top_k,
@@ -634,7 +637,7 @@ class DatasetBuilder:
         if self.use_openrouter:
             results = self.openrouter_client.generate_batch(
                 prompts=prompts,
-                model=self.openrouter_model,
+                model=self.active_model,
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
                 top_k=self.top_k,
@@ -872,8 +875,13 @@ class DatasetBuilder:
             self.logger.info(f"Resuming from checkpoint: {num_generated} samples already generated")
 
         # Generate personality-specific character descriptions using P2
+        self.logger.debug(f"Generating positive P2 for personality: {self.personality}")
         positive_p2 = self.p2.build("Xylo", self.personality)
+        self.logger.debug(f"Positive P2 generated: {positive_p2[:200]}...")
+
+        self.logger.debug("Generating neutral P2")
         neutral_p2 = self.p2.build("Xylo", "Normal")
+        self.logger.debug(f"Neutral P2 generated: {neutral_p2[:200]}...")
 
         # Create templates with placeholder for character name
         positive_template = positive_p2.replace("Xylo", "{{char}}").replace(

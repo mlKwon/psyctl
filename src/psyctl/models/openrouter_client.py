@@ -69,7 +69,7 @@ class OpenRouterClient:
         self,
         prompt: str,
         model: str = "qwen/qwen3-next-80b-a3b-instruct",
-        temperature: float = 0.7,
+        temperature: float = 0,
         max_tokens: int = 100,
         system_prompt: Optional[str] = None,
         top_k: Optional[int] = None,
@@ -81,7 +81,7 @@ class OpenRouterClient:
         Args:
             prompt (str): User prompt for generation
             model (str): Model identifier on OpenRouter
-            temperature (float): Sampling temperature (0.0-2.0)
+            temperature (float): Sampling temperature (0.0-2.0, default: 0)
             max_tokens (int): Maximum tokens to generate
             system_prompt (Optional[str]): System prompt for context
             top_k (Optional[int]): Top-k sampling parameter
@@ -112,6 +112,14 @@ class OpenRouterClient:
         if top_p is not None:
             request_body["top_p"] = top_p
 
+        self.logger.debug(f"OpenRouter request - Model: {model}")
+        self.logger.debug(f"OpenRouter request - Messages: {json.dumps(messages, ensure_ascii=False)[:500]}...")
+        self.logger.debug(f"OpenRouter request - Temperature: {temperature}, Max tokens: {max_tokens}")
+        if top_k is not None:
+            self.logger.debug(f"OpenRouter request - Top K: {top_k}")
+        if top_p is not None:
+            self.logger.debug(f"OpenRouter request - Top P: {top_p}")
+
         try:
             response = requests.post(
                 f"{self.base_url}/chat/completions",
@@ -123,14 +131,20 @@ class OpenRouterClient:
                 timeout=60,
             )
 
+            self.logger.debug(f"OpenRouter response status: {response.status_code}")
+
             if response.status_code != 200:
                 error_msg = f"API Error: {response.status_code} - {response.text}"
                 self.logger.error(error_msg)
                 raise Exception(error_msg)
 
             result = response.json()
+            self.logger.debug(f"OpenRouter response JSON: {json.dumps(result, ensure_ascii=False)[:1000]}...")
+
             generation_id = result["id"]
             generated_text = result["choices"][0]["message"]["content"]
+
+            self.logger.debug(f"Generated text (raw): {generated_text}")
 
             # Log original response for debugging
             if "&#" in generated_text:
@@ -144,7 +158,7 @@ class OpenRouterClient:
                 self.logger.warning(f"HTML entities still present after unescape: {generated_text[:100]}...")
 
             self.total_requests += 1
-            self.logger.debug(f"Generated response (ID: {generation_id})")
+            self.logger.debug(f"Generated response (ID: {generation_id}): {generated_text}")
 
             return generation_id, generated_text
 
@@ -162,7 +176,7 @@ class OpenRouterClient:
         self,
         prompts: List[str],
         model: str = "qwen/qwen3-next-80b-a3b-instruct",
-        temperature: float = 0.7,
+        temperature: float = 0,
         max_tokens: int = 100,
         system_prompt: Optional[str] = None,
         max_workers: int = 1,
