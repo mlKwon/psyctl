@@ -42,6 +42,10 @@ def mock_tokenizer():
     mock_output.input_ids = torch.tensor([[1, 2, 3, 4, 5]])
     tokenizer.return_value = mock_output
 
+    # Mock chat template attributes
+    tokenizer.chat_template = None
+    tokenizer.apply_chat_template = None
+
     return tokenizer
 
 
@@ -334,3 +338,35 @@ class TestBiPOVectorExtractor:
 
                     vec = vectors["test.layer"]
                     assert pytest.approx(vec.norm().item(), rel=1e-5) == 5.0
+
+    def test_format_with_chat_template_available(self, extractor):
+        """Test formatting with chat template when available."""
+        tokenizer = MagicMock()
+        tokenizer.chat_template = "template"
+        tokenizer.apply_chat_template = MagicMock(
+            return_value="<|user|>Test<|assistant|>"
+        )
+
+        result = extractor._format_with_chat_template(tokenizer, "Test")
+
+        assert result == "<|user|>Test<|assistant|>"
+        tokenizer.apply_chat_template.assert_called_once()
+
+    def test_format_with_chat_template_unavailable(self, extractor):
+        """Test formatting without chat template."""
+        tokenizer = MagicMock()
+        tokenizer.chat_template = None
+
+        result = extractor._format_with_chat_template(tokenizer, "Test")
+
+        assert result == "Test"
+
+    def test_format_with_chat_template_error(self, extractor):
+        """Test formatting when chat template raises error."""
+        tokenizer = MagicMock()
+        tokenizer.chat_template = "template"
+        tokenizer.apply_chat_template = MagicMock(side_effect=Exception("Template error"))
+
+        result = extractor._format_with_chat_template(tokenizer, "Test")
+
+        assert result == "Test"

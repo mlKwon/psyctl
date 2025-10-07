@@ -340,13 +340,19 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         Returns:
             Sum of log probabilities for response tokens
         """
-        full_text = question + " " + response
+        # Format question with chat template if available
+        question_text = self._format_with_chat_template(tokenizer, question)
+        full_text = question_text + response
+
         tokens = tokenizer(
             full_text, return_tensors="pt", max_length=512, truncation=True
         )
-        question_len = len(
-            tokenizer(question, max_length=512, truncation=True).input_ids
+
+        # Calculate question length to identify response tokens
+        question_tokens = tokenizer(
+            question_text, max_length=512, truncation=True
         )
+        question_len = len(question_tokens.input_ids)
 
         # Register steering hook if needed
         hook_handle = None
@@ -393,3 +399,35 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         finally:
             if hook_handle:
                 hook_handle.remove()
+
+    def _format_with_chat_template(
+        self, tokenizer: AutoTokenizer, text: str
+    ) -> str:
+        """
+        Format text using model's chat template if available.
+
+        Args:
+            tokenizer: Model tokenizer
+            text: Text to format
+
+        Returns:
+            Formatted text (with chat template if available, otherwise original)
+        """
+        # Try to use chat template if available
+        if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
+            try:
+                messages = [{"role": "user", "content": text}]
+                formatted = tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
+                self.logger.debug("Applied chat template for prompt formatting")
+                return formatted
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to apply chat template: {e}. Using raw text."
+                )
+                return text
+        else:
+            # Fallback: return raw text
+            self.logger.debug("No chat template available, using raw text")
+            return text
