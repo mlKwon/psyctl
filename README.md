@@ -17,6 +17,7 @@ For detailed documentation on specific features:
 
 - **[Build CAA Dataset](./docs/DATASET.BUILD.CAA.md)** - Complete guide to generating CAA datasets for steering vector extraction
 - **[Extract Steering Vectors](./docs/EXTRACT.STEERING.md)** - Complete guide to extracting steering vectors using various methods
+- **[Steering Experiment](./docs/STEERING.md)** - Complete guide to applying steering vectors for text generation
 
 ---
 
@@ -86,7 +87,7 @@ psyctl extract.steering \
 psyctl steering \
   --model "meta-llama/Llama-3.2-3B-Instruct" \
   --steering-vector "./steering_vector/out.safetensors" \
-  --input-text "hello world blabla"
+  --input-text "Tell me about yourself"
 
 # 4. Inventory test
 psyctl benchmark \
@@ -126,19 +127,16 @@ See [Extract Steering Vectors](./docs/EXTRACT.STEERING.md) for detailed document
 
 #### 3. Steering Experiment (`steering`)
 
-Applies extracted steering vectors to generate text.
+Applies extracted steering vectors to generate text with personality steering.
 
 ```bash
 psyctl steering \
   --model "meta-llama/Llama-3.2-3B-Instruct" \
   --steering-vector "./steering_vector/out.safetensors" \
-  --input-text "hello world blabla"
+  --input-text "Tell me about yourself"
 ```
 
-**Parameters:**
-- `--model`: Model name to use
-- `--steering-vector`: Steering vector file path
-- `--input-text`: Input text
+See [Steering Experiment](./docs/STEERING.md) for detailed documentation.
 
 #### 4. Inventory Test (`benchmark`)
 
