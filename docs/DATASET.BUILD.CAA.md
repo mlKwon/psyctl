@@ -6,6 +6,7 @@ This document describes how to build Contrastive Activation Addition (CAA) datas
 
 - [Overview](#overview)
 - [Usage](#usage)
+- [OpenRouter Integration](#openrouter-integration)
 - [Dataset Source](#dataset-source)
 - [Output Format](#output-format)
 - [Performance Optimization](#performance-optimization)
@@ -71,14 +72,85 @@ psyctl dataset.build.caa \
   --output "./dataset/multi"
 ```
 
+## OpenRouter Integration
+
+PSYCTL supports OpenRouter API for dataset generation without local GPU requirements. See [OpenRouter Guide](./OPENROUTER.md) for detailed documentation.
+
+### Basic OpenRouter Usage
+
+Generate dataset using OpenRouter API:
+
+```bash
+psyctl dataset.build.caa \
+  --openrouter-api-key "sk-or-v1-xxxx" \
+  --personality "Extroversion" \
+  --output "./dataset/openrouter"
+```
+
+### With Custom Model
+
+```bash
+psyctl dataset.build.caa \
+  --openrouter-api-key "sk-or-v1-xxxx" \
+  --openrouter-model "meta-llama/llama-3.1-405b-instruct" \
+  --personality "Machiavellianism" \
+  --output "./dataset/llama"
+```
+
+### Parallel Processing
+
+Speed up generation with multiple workers:
+
+```bash
+psyctl dataset.build.caa \
+  --openrouter-api-key "sk-or-v1-xxxx" \
+  --openrouter-max-workers 4 \
+  --personality "Extroversion" \
+  --output "./dataset/fast" \
+  --limit-samples 1000
+```
+
+### OpenRouter vs Local Model
+
+| Feature | OpenRouter | Local Model |
+|---------|-----------|-------------|
+| GPU Required | No | Yes |
+| Cost | Per API call | Free (after hardware) |
+| Model Size | Up to 405B+ | Limited by VRAM |
+| Speed (small datasets) | Slower | Faster |
+| Speed (with parallel) | Competitive | Faster |
+| Setup Time | Instant | Model download required |
+
+**When to use OpenRouter:**
+- No GPU available
+- Need large models (70B+, 405B)
+- Testing different models
+- One-time dataset generation
+
+**When to use Local Model:**
+- GPU available
+- Frequent dataset generation
+- Large-scale production
+- Cost optimization
+
 ### Command-Line Options
 
-- `--model`: Hugging Face model identifier (required)
+**Required Options:**
 - `--personality`: Target personality traits, comma-separated (required)
 - `--output`: Output directory path (required)
+
+**Model Options:**
+- `--model`: Hugging Face model identifier (required for local mode)
+- `--openrouter-api-key`: OpenRouter API key for cloud mode (alternative to --model)
+- `--openrouter-model`: OpenRouter model identifier (default: qwen/qwen3-next-80b-a3b-instruct)
+- `--openrouter-max-workers`: Number of parallel workers for OpenRouter (default: 1)
+
+**Dataset Options:**
 - `--dataset`: Hugging Face dataset name (default: "allenai/soda")
 - `--limit-samples`: Maximum number of samples to generate (default: all)
-- `--batch-size`: Batch size for inference (default: from config)
+
+**Performance Options:**
+- `--batch-size`: Batch size for inference (default: from config, local mode only)
 
 ## Dataset Source
 

@@ -25,6 +25,10 @@ DEFAULT_DEVICE = get_env("PSYCTL_DEFAULT_DEVICE", "auto")
 # Hugging Face settings
 HF_TOKEN = get_env("HF_TOKEN")
 
+# OpenRouter settings
+OPENROUTER_API_KEY = get_env("OPENROUTER_API_KEY")
+OPENROUTER_DEFAULT_MODEL = get_env("OPENROUTER_DEFAULT_MODEL", "qwen/qwen3-next-80b-a3b-instruct")
+
 # Dataset settings
 DEFAULT_DATASET_SIZE = get_env("PSYCTL_DEFAULT_DATASET_SIZE", 1000, int)
 DEFAULT_BATCH_SIZE = get_env("PSYCTL_DEFAULT_BATCH_SIZE", 8, int)

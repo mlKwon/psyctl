@@ -45,7 +45,9 @@ import torch
 
 from psyctl.core.logger import get_logger
 from psyctl.core.prompt import P2
+from psyctl.core.prompt_openrouter import P2OpenRouter
 from psyctl.models.llm_loader import LLMLoader
+from psyctl.models.openrouter_client import OpenRouterClient
 from psyctl.config import INFERENCE_BATCH_SIZE, MAX_WORKERS, CHECKPOINT_INTERVAL
 
 
@@ -78,13 +80,25 @@ class DatasetBuilder:
         _build_caa_dataset: Core dataset building logic
     """
 
-    def __init__(self):
+    def __init__(self, use_openrouter: bool = False, openrouter_api_key: str = None, openrouter_model: str = None, openrouter_max_workers: int = 1):
         """
         Initialize DatasetBuilder with required components.
 
         Initializes the LLM loader, logger, and placeholder attributes for
         model, tokenizer, dataset, and P2 personality generator.
+
+        Args:
+            use_openrouter (bool): Whether to use OpenRouter API instead of local model
+            openrouter_api_key (str): OpenRouter API key (required if use_openrouter=True)
+            openrouter_model (str): OpenRouter model identifier
+            openrouter_max_workers (int): Number of parallel workers for OpenRouter (1 = sequential)
         """
+        self.use_openrouter = use_openrouter
+        self.openrouter_api_key = openrouter_api_key
+        self.openrouter_model = openrouter_model
+        self.openrouter_max_workers = openrouter_max_workers
+        self.openrouter_client = None
+
         self.llm_loader = LLMLoader()
         self.p2 = None
         self.logger = get_logger("dataset_builder")
@@ -93,6 +107,10 @@ class DatasetBuilder:
         self.tokenizer = None
         self.write_lock = threading.Lock()
         self.checkpoint_data = []
+
+        # Validate OpenRouter configuration
+        if self.use_openrouter and not self.openrouter_api_key:
+            raise ValueError("OpenRouter API key is required when use_openrouter=True")
 
     def build_caa_dataset(
         self, model: str, personality: str, output_dir: Path, limit_samples: int, dataset_name: str = "allenai/soda"
@@ -137,9 +155,14 @@ class DatasetBuilder:
             self.logger.debug(f"Created output directory: {output_dir}")
             self.personality = personality
 
-            # 1. Load model
-            self._load_model(model)
-            self.p2 = P2(self.model, self.tokenizer)
+            # 1. Load model or initialize OpenRouter client
+            if self.use_openrouter:
+                self.logger.info(f"Using OpenRouter API with model: {self.openrouter_model}")
+                self.openrouter_client = OpenRouterClient(api_key=self.openrouter_api_key)
+                self.p2 = P2OpenRouter(client=self.openrouter_client, model=self.openrouter_model)
+            else:
+                self._load_model(model)
+                self.p2 = P2(self.model, self.tokenizer)
 
             # 2. Load dataset
             self._load_dataset(dataset_name)
@@ -148,6 +171,12 @@ class DatasetBuilder:
             num_samples = self._build_caa_dataset(output_dir, limit_samples)
 
             self.logger.info(f"Finished building CAA dataset")
+
+            # Log OpenRouter usage if applicable
+            if self.use_openrouter:
+                self.logger.info(f"Total OpenRouter requests: {self.openrouter_client.get_total_requests()}")
+                self.logger.info(f"Total OpenRouter cost: ${self.openrouter_client.get_total_cost():.6f}")
+
             return num_samples
 
         except Exception as e:
@@ -310,6 +339,21 @@ class DatasetBuilder:
         if verbose:
             print(prompt)
 
+        # OpenRouter mode
+        if self.use_openrouter:
+            try:
+                _, output_text = self.openrouter_client.generate(
+                    prompt=prompt,
+                    model=self.openrouter_model,
+                    max_tokens=100,
+                    temperature=0.7,
+                )
+                return output_text
+            except Exception as e:
+                self.logger.error(f"OpenRouter generation failed: {e}")
+                return ""
+
+        # Local model mode
         # Use the same approach as P2._get_result
         messages = [{"role": "user", "content": prompt}]
 
@@ -401,7 +445,18 @@ class DatasetBuilder:
             prompt = "\n".join(rp_prompt)
             prompts.append(prompt)
 
-        # Process in batches
+        # OpenRouter mode
+        if self.use_openrouter:
+            results = self.openrouter_client.generate_batch(
+                prompts=prompts,
+                model=self.openrouter_model,
+                max_tokens=100,
+                temperature=0.7,
+                max_workers=self.openrouter_max_workers,
+            )
+            return [text for _, text in results]
+
+        # Local model mode - Process in batches
         all_responses = []
         for i in range(0, len(prompts), batch_size):
             batch_prompts = prompts[i : i + batch_size]

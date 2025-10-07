@@ -13,7 +13,7 @@ logger = get_logger("dataset")
 
 
 @click.command()
-@click.option("--model", required=True, help="Model name (e.g., google/gemma-3-27b-it)")
+@click.option("--model", required=False, help="Model name (e.g., google/gemma-3-27b-it)")
 @click.option(
     "--personality",
     required=True,
@@ -35,8 +35,51 @@ logger = get_logger("dataset")
     default="allenai/soda",
     help="Hugging Face dataset name (e.g., allenai/soda, username/custom-dataset)",
 )
-def build_caa(model: str, personality: str, output: str, limit_samples: int, dataset: str):
+@click.option(
+    "--openrouter-api-key",
+    required=False,
+    help="OpenRouter API key (format: sk-or-xxxx). If provided, uses OpenRouter instead of local model.",
+)
+@click.option(
+    "--openrouter-model",
+    required=False,
+    default="qwen/qwen3-next-80b-a3b-instruct",
+    help="OpenRouter model identifier (default: qwen/qwen3-next-80b-a3b-instruct)",
+)
+@click.option(
+    "--openrouter-max-workers",
+    required=False,
+    type=int,
+    default=1,
+    help="Number of parallel workers for OpenRouter API (1 = sequential, higher = parallel)",
+)
+def build_caa(
+    model: str,
+    personality: str,
+    output: str,
+    limit_samples: int,
+    dataset: str,
+    openrouter_api_key: str,
+    openrouter_model: str,
+    openrouter_max_workers: int,
+):
     """Build CAA dataset for steering vector extraction."""
+    # Determine if using OpenRouter or local model
+    use_openrouter = bool(openrouter_api_key)
+
+    # Validate configuration
+    if use_openrouter:
+        logger.info("Using OpenRouter API mode")
+        console.print("[yellow]Using OpenRouter API mode[/yellow]")
+        if not model:
+            model = "openrouter"  # Placeholder when using OpenRouter
+    else:
+        if not model:
+            logger.error("--model is required when not using OpenRouter")
+            console.print("[red]Error: --model is required when not using --openrouter-api-key[/red]")
+            raise click.BadParameter("--model is required when not using OpenRouter")
+        logger.info("Using local model mode")
+
     logger.info("Starting CAA dataset build")
     logger.info(f"Model: {model}")
     logger.info(f"Personality: {personality}")
@@ -45,14 +88,23 @@ def build_caa(model: str, personality: str, output: str, limit_samples: int, dat
     logger.info(f"Limit samples: {limit_samples}")
 
     console.print(f"[blue]Building CAA dataset...[/blue]")
-    console.print(f"Model: {model}")
+    if use_openrouter:
+        console.print(f"OpenRouter Model: {openrouter_model}")
+        console.print(f"OpenRouter Workers: {openrouter_max_workers}")
+    else:
+        console.print(f"Local Model: {model}")
     console.print(f"Personality: {personality}")
     console.print(f"Output: {output}")
     console.print(f"Dataset: {dataset}")
     console.print(f"Limit samples: {limit_samples}")
 
     try:
-        builder = DatasetBuilder()
+        builder = DatasetBuilder(
+            use_openrouter=use_openrouter,
+            openrouter_api_key=openrouter_api_key,
+            openrouter_model=openrouter_model,
+            openrouter_max_workers=openrouter_max_workers,
+        )
         builder.build_caa_dataset(model, personality, Path(output), limit_samples, dataset)
 
         logger.info(f"Dataset built successfully at {output}")
