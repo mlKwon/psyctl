@@ -11,6 +11,15 @@ A tool that supports steering LLMs to exhibit specific personalities. The goal i
 
 ---
 
+## 📚 Documentation
+
+For detailed documentation on specific features:
+
+- **[Build CAA Dataset](./docs/DATASET.BUILD.CAA.md)** - Complete guide to generating CAA datasets for steering vector extraction
+- **[Extract Steering Vectors](./docs/EXTRACT.STEERING.md)** - Complete guide to extracting steering vectors using various methods
+
+---
+
 ## 📖 User Guide
 
 ### 🚀 Quick Start
@@ -90,7 +99,7 @@ psyctl benchmark \
 
 #### 1. Dataset Generation (`dataset.build.caa`)
 
-Generates datasets for finding steering vectors.
+Generates CAA datasets for steering vector extraction.
 
 ```bash
 psyctl dataset.build.caa \
@@ -99,21 +108,11 @@ psyctl dataset.build.caa \
   --output "./dataset/cca"
 ```
 
-**Parameters:**
-- `--model`: Model name to use (Hugging Face model ID)
-- `--personality`: Target personality traits (comma-separated)
-- `--output`: Dataset save path
-- `--limit-samples`: Maximum number of samples to generate (optional)
-
-**Performance Features:**
-- **Batch Processing**: Automatically processes multiple samples simultaneously for improved GPU utilization
-- **Checkpoint Support**: Saves progress every 100 samples (configurable) - interrupted runs can be resumed
-- **Async I/O**: Optimized file writing for better performance
-- **Memory Management**: Efficient GPU memory usage with dynamic batching
+See [Build CAA Dataset](./docs/DATASET.BUILD.CAA.md) for detailed documentation.
 
 #### 2. Steering Vector Extraction (`extract.steering`)
 
-Extracts steering vectors using the CAA method.
+Extracts steering vectors from model activations.
 
 ```bash
 psyctl extract.steering \
@@ -123,11 +122,7 @@ psyctl extract.steering \
   --output "./steering_vector/out.safetensors"
 ```
 
-**Parameters:**
-- `--model`: Model name to use
-- `--layer`: Layer path to extract activations from
-- `--dataset`: Dataset path
-- `--output`: Steering vector save path (.safetensors)
+See [Extract Steering Vectors](./docs/EXTRACT.STEERING.md) for detailed documentation.
 
 #### 3. Steering Experiment (`steering`)
 
