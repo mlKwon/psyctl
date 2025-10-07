@@ -501,4 +501,15 @@ The project includes PowerShell scripts to automate development tasks:
 - [Style-Specific Neurons for Steering LLMs in Text Style Transfer](https://arxiv.org/abs/2410.00593)
 - [Between facets and domains: 10 aspects of the Big Five. Journal of Personality and Social Psychology](https://psycnet.apa.org/fulltext/2007-15390-012.html)
 
+---
+
+## Sponsors
+This project is sponsored by [Caveduck.io](https://caveduck.io)
+
+
+<p align="left">
+  <a href="https://caveduck.io" target="_blank">
+    <img src="https://cdn.caveduck.io/public/assets/logo_white.c2efa9b1d010.svg" alt="Caveduck.io" width="200"/>
+  </a>
+</p>
 
