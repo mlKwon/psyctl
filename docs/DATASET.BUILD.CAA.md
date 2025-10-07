@@ -130,7 +130,7 @@ dataset_builder = DatasetBuilder(
 
 # Build CAA dataset
 num_samples = dataset_builder.build_caa_dataset(
-    model="",  # Not used in OpenRouter mode, can be empty
+    model="qwen/qwen3-next-80b-a3b-instruct",  # OpenRouter model identifier (default)
     personality="Extroversion",
     output_dir=Path("./dataset/openrouter"),
     limit_samples=1000
@@ -148,20 +148,19 @@ from pathlib import Path
 # Initialize with custom OpenRouter model
 dataset_builder = DatasetBuilder(
     use_openrouter=True,
-    openrouter_api_key="sk-or-v1-xxxx",
-    openrouter_model="meta-llama/llama-3.1-405b-instruct"
+    openrouter_api_key="sk-or-v1-xxxx"
 )
 
 # Build CAA dataset with custom Hugging Face dataset
-num_samples = dataset_builder.build_caa_dataset(
-    model="",  # Not used in OpenRouter mode
+output_path = dataset_builder.build_caa_dataset(
+    model="meta-llama/llama-3.1-405b-instruct",  # OpenRouter model identifier
     personality="Machiavellianism",
     output_dir=Path("./dataset/custom"),
     limit_samples=500,
     dataset_name="CaveduckAI/simplified_soda_kr"
 )
 
-print(f"Generated {num_samples} samples")
+print(f"Generated file path: {output_path}")
 ```
 
 #### With Parallel Processing
@@ -174,13 +173,12 @@ from pathlib import Path
 dataset_builder = DatasetBuilder(
     use_openrouter=True,
     openrouter_api_key="sk-or-v1-xxxx",
-    openrouter_model="google/gemma-2-27b-it",
     openrouter_max_workers=4  # Process 4 requests in parallel
 )
 
 # Build dataset
 num_samples = dataset_builder.build_caa_dataset(
-    model="",
+    model="qwen/qwen3-next-80b-a3b-instruct",  # OpenRouter model identifier
     personality="Extroversion",
     output_dir=Path("./dataset/parallel"),
     limit_samples=1000
@@ -207,7 +205,7 @@ dataset_builder = DatasetBuilder(
 
 # Build dataset
 num_samples = dataset_builder.build_caa_dataset(
-    model="",
+    model="qwen/qwen3-next-80b-a3b-instruct",  # OpenRouter model identifier
     personality="Extroversion",
     output_dir=Path("./dataset/openrouter"),
     limit_samples=1000
@@ -222,18 +220,23 @@ num_samples = dataset_builder.build_caa_dataset(
 |-----------|------|---------|-------------|
 | `use_openrouter` | bool | False | Enable OpenRouter mode |
 | `openrouter_api_key` | str | None | OpenRouter API key (required if use_openrouter=True) |
-| `openrouter_model` | str | "qwen/qwen3-next-80b-a3b-instruct" | OpenRouter model identifier |
 | `openrouter_max_workers` | int | 1 | Number of parallel workers for API calls |
+| `caa_question_template` | str | None | Path to custom Jinja2 template for CAA questions |
+| `roleplay_prompt_template` | str | None | Path to custom Jinja2 template for roleplay prompts |
 
 **build_caa_dataset() Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `model` | str | Yes | Model identifier (not used in OpenRouter mode, pass "") |
+| `model` | str | Yes | Model identifier (for local mode: HF model ID; for OpenRouter mode: OpenRouter model ID) |
 | `personality` | str | Yes | Target personality trait |
 | `output_dir` | Path | Yes | Output directory for dataset |
 | `limit_samples` | int | Yes | Maximum number of samples to generate |
 | `dataset_name` | str | No | Hugging Face dataset name (default: "allenai/soda") |
+| `temperature` | float | No | Sampling temperature (default: 0) |
+| `top_k` | int | No | Top-k sampling parameter (default: None) |
+| `top_p` | float | No | Top-p sampling parameter (default: None) |
+| `max_tokens` | int | No | Maximum tokens per response (default: 100) |
 
 ### Command-Line Options
 

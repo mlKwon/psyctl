@@ -188,6 +188,15 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         dtype = next(model.parameters()).dtype
         hidden_size = model.config.hidden_size
 
+        # Log GPU information
+        if device.type == 'cuda':
+            gpu_name = torch.cuda.get_device_name(device)
+            gpu_memory = torch.cuda.get_device_properties(device).total_memory / (1024**3)
+            self.logger.info(f"Using GPU: {gpu_name} ({gpu_memory:.2f} GB)")
+            self.logger.info(f"CUDA device: {device}")
+        else:
+            self.logger.warning(f"Using CPU: {device} (GPU acceleration not available)")
+
         v = torch.zeros(hidden_size, requires_grad=True, device=device, dtype=dtype)
         optimizer = AdamW([v], lr=lr, weight_decay=0.05)
 
@@ -232,8 +241,16 @@ class BiPOVectorExtractor(BaseVectorExtractor):
                 )
 
             avg_loss = epoch_loss / num_batches
+
+            # Log GPU memory usage if using CUDA
+            gpu_mem_info = ""
+            if device.type == 'cuda':
+                allocated = torch.cuda.memory_allocated(device) / (1024**3)
+                reserved = torch.cuda.memory_reserved(device) / (1024**3)
+                gpu_mem_info = f", GPU_mem: {allocated:.2f}/{reserved:.2f}GB"
+
             self.logger.info(
-                f"Epoch {epoch + 1}: Loss={avg_loss:.4f}, Vector_norm={v.norm().item():.4f}"
+                f"Epoch {epoch + 1}: Loss={avg_loss:.4f}, Vector_norm={v.norm().item():.4f}{gpu_mem_info}"
             )
 
         return v.detach().clone()

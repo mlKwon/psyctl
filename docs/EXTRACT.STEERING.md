@@ -22,7 +22,9 @@ Steering vectors are learned representations that can modify language model beha
 
 ## Usage
 
-### Basic Single-Layer Extraction
+### CLI Usage
+
+#### Basic Single-Layer Extraction
 
 Extract a steering vector from a single model layer:
 
@@ -34,7 +36,7 @@ psyctl extract.steering \
   --output "./steering_vector/out.safetensors"
 ```
 
-### Multi-Layer Extraction
+#### Multi-Layer Extraction
 
 Extract steering vectors from multiple layers simultaneously:
 
@@ -56,7 +58,7 @@ psyctl extract.steering \
   --output "./steering_vector/multi_layer.safetensors"
 ```
 
-### Command-Line Options
+#### Command-Line Options
 
 - `--model`: Hugging Face model identifier (required)
 - `--layer`: Single layer path (can be repeated for multi-layer extraction)
@@ -65,6 +67,163 @@ psyctl extract.steering \
 - `--output`: Output path for safetensors file (required)
 - `--batch-size`: Batch size for inference (default: from config)
 - `--normalize`: Normalize steering vectors to unit length (optional)
+
+### Python Code Usage
+
+You can use the `SteeringExtractor` class directly in Python code:
+
+#### Basic Example
+
+```python
+from pathlib import Path
+from psyctl.core.steering_extractor import SteeringExtractor
+
+# Initialize extractor
+extractor = SteeringExtractor()
+
+# Extract steering vector using CAA method
+vectors = extractor.extract_caa(
+    model_name="google/gemma-2-2b-it",
+    layers=["model.layers.13.mlp.down_proj"],
+    dataset_path=Path("./results/caa_dataset_20251007_160523.jsonl"),
+    output_path=Path("./results/bipo_steering.safetensors"),
+    normalize=False,
+    method="mean_contrastive"
+)
+
+# vectors is a dict: {"model.layers.13.mlp.down_proj": torch.Tensor}
+print(f"Extracted {len(vectors)} vectors")
+for layer_name, vector in vectors.items():
+    print(f"  {layer_name}: shape={vector.shape}, norm={vector.norm().item():.4f}")
+```
+
+#### BiPO Method Example
+
+```python
+from pathlib import Path
+from psyctl.core.steering_extractor import SteeringExtractor
+
+extractor = SteeringExtractor()
+
+# Extract using BiPO optimization method
+vectors = extractor.extract_caa(
+    model_name="google/gemma-2-2b-it",
+    layers=["model.layers.13.mlp"],  # BiPO uses layer modules, not projections
+    dataset_path=Path("./results/caa_dataset_20251007_160523.jsonl"),
+    output_path=Path("./results/bipo_steering.safetensors"),
+    batch_size=16,
+    normalize=False,
+    method="bipo",
+    lr=5e-4,
+    beta=0.1,
+    epochs=10
+)
+```
+
+#### Multi-Layer Example
+
+```python
+from pathlib import Path
+from psyctl.core.steering_extractor import SteeringExtractor
+
+extractor = SteeringExtractor()
+
+# Extract from multiple layers simultaneously
+layers = [
+    "model.layers.10.mlp.down_proj",
+    "model.layers.12.mlp.down_proj",
+    "model.layers.14.mlp.down_proj",
+]
+
+vectors = extractor.extract_caa(
+    model_name="google/gemma-2-2b-it",
+    layers=layers,
+    dataset_path=Path("./results/caa_dataset_20251007_160523.jsonl"),
+    output_path=Path("./results/multi_layer_steering.safetensors"),
+    batch_size=16,
+    normalize=True,
+    method="mean_contrastive"
+)
+
+# Analyze extracted vectors
+for layer_name, vector in vectors.items():
+    norm = vector.norm().item()
+    mean = vector.mean().item()
+    std = vector.std().item()
+    print(f"{layer_name}:")
+    print(f"  Shape: {vector.shape}")
+    print(f"  Norm: {norm:.4f}")
+    print(f"  Mean: {mean:.6f}")
+    print(f"  Std: {std:.6f}")
+```
+
+#### Loading and Using Extracted Vectors
+
+```python
+from safetensors.torch import load_file
+import json
+
+# Load saved vectors
+data = load_file("./results/bipo_steering.safetensors")
+
+# Access vectors
+for key, tensor in data.items():
+    if key != "__metadata__":
+        print(f"Layer: {key}")
+        print(f"  Shape: {tensor.shape}")
+        print(f"  Device: {tensor.device}")
+        print(f"  Dtype: {tensor.dtype}")
+
+# Load metadata
+metadata_json = data.get("__metadata__", {})
+if isinstance(metadata_json, bytes):
+    metadata = json.loads(metadata_json.decode('utf-8'))
+elif isinstance(metadata_json, str):
+    metadata = json.loads(metadata_json)
+else:
+    metadata = metadata_json
+
+print(f"\nMetadata:")
+print(f"  Model: {metadata.get('model')}")
+print(f"  Method: {metadata.get('method')}")
+print(f"  Layers: {metadata.get('num_layers')}")
+print(f"  Normalized: {metadata.get('normalized')}")
+print(f"  Dataset samples: {metadata.get('dataset_samples')}")
+```
+
+#### Complete Workflow Example
+
+```python
+from pathlib import Path
+from psyctl.core.steering_extractor import SteeringExtractor
+from safetensors.torch import load_file
+
+# 1. Extract steering vector
+extractor = SteeringExtractor()
+
+vectors = extractor.extract_caa(
+    model_name="google/gemma-2-2b-it",
+    layers=["model.layers.13.mlp.down_proj"],
+    dataset_path=Path("./results/caa_dataset_20251007_160523.jsonl"),
+    output_path=Path("./results/extroversion_steering.safetensors"),
+    batch_size=16,
+    normalize=False,
+    method="mean_contrastive"
+)
+
+# 2. Verify extraction
+layer_name = "model.layers.13.mlp.down_proj"
+vector = vectors[layer_name]
+print(f"Extracted vector: shape={vector.shape}, norm={vector.norm().item():.4f}")
+
+# 3. Load for later use
+loaded_data = load_file("./results/extroversion_steering.safetensors")
+loaded_vector = loaded_data[layer_name]
+print(f"Loaded vector: shape={loaded_vector.shape}")
+
+# 4. Apply to model (see STEERING.md for details)
+# ...
+```
 
 ### Layer Path Format
 
