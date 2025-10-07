@@ -76,7 +76,9 @@ psyctl dataset.build.caa \
 
 PSYCTL supports OpenRouter API for dataset generation without local GPU requirements. See [OpenRouter Guide](./OPENROUTER.md) for detailed documentation.
 
-### Basic OpenRouter Usage
+### CLI Usage
+
+#### Basic OpenRouter Usage
 
 Generate dataset using OpenRouter API:
 
@@ -87,7 +89,7 @@ psyctl dataset.build.caa \
   --output "./dataset/openrouter"
 ```
 
-### With Custom Model
+#### With Custom Model
 
 ```bash
 psyctl dataset.build.caa \
@@ -97,7 +99,7 @@ psyctl dataset.build.caa \
   --output "./dataset/llama"
 ```
 
-### Parallel Processing
+#### Parallel Processing
 
 Speed up generation with multiple workers:
 
@@ -109,6 +111,129 @@ psyctl dataset.build.caa \
   --output "./dataset/fast" \
   --limit-samples 1000
 ```
+
+### Programmatic Usage (Python API)
+
+Use DatasetBuilder directly in Python code with OpenRouter:
+
+#### Basic Usage
+
+```python
+from psyctl import DatasetBuilder
+from pathlib import Path
+
+# Initialize DatasetBuilder with OpenRouter
+dataset_builder = DatasetBuilder(
+    use_openrouter=True,
+    openrouter_api_key="sk-or-v1-xxxx"
+)
+
+# Build CAA dataset
+num_samples = dataset_builder.build_caa_dataset(
+    model="",  # Not used in OpenRouter mode, can be empty
+    personality="Extroversion",
+    output_dir=Path("./dataset/openrouter"),
+    limit_samples=1000
+)
+
+print(f"Generated {num_samples} samples")
+```
+
+#### With Custom Model and Dataset
+
+```python
+from psyctl import DatasetBuilder
+from pathlib import Path
+
+# Initialize with custom OpenRouter model
+dataset_builder = DatasetBuilder(
+    use_openrouter=True,
+    openrouter_api_key="sk-or-v1-xxxx",
+    openrouter_model="meta-llama/llama-3.1-405b-instruct"
+)
+
+# Build CAA dataset with custom Hugging Face dataset
+num_samples = dataset_builder.build_caa_dataset(
+    model="",  # Not used in OpenRouter mode
+    personality="Machiavellianism",
+    output_dir=Path("./dataset/custom"),
+    limit_samples=500,
+    dataset_name="CaveduckAI/simplified_soda_kr"
+)
+
+print(f"Generated {num_samples} samples")
+```
+
+#### With Parallel Processing
+
+```python
+from psyctl import DatasetBuilder
+from pathlib import Path
+
+# Initialize with parallel workers
+dataset_builder = DatasetBuilder(
+    use_openrouter=True,
+    openrouter_api_key="sk-or-v1-xxxx",
+    openrouter_model="google/gemma-2-27b-it",
+    openrouter_max_workers=4  # Process 4 requests in parallel
+)
+
+# Build dataset
+num_samples = dataset_builder.build_caa_dataset(
+    model="",
+    personality="Extroversion",
+    output_dir=Path("./dataset/parallel"),
+    limit_samples=1000
+)
+
+print(f"Generated {num_samples} samples using parallel processing")
+```
+
+#### Environment Variable for API Key
+
+```python
+import os
+from psyctl import DatasetBuilder
+from pathlib import Path
+
+# Set API key via environment variable
+os.environ["OPENROUTER_API_KEY"] = "sk-or-v1-xxxx"
+
+# Initialize without explicit API key
+dataset_builder = DatasetBuilder(
+    use_openrouter=True,
+    openrouter_api_key=os.getenv("OPENROUTER_API_KEY")
+)
+
+# Build dataset
+num_samples = dataset_builder.build_caa_dataset(
+    model="",
+    personality="Extroversion",
+    output_dir=Path("./dataset/openrouter"),
+    limit_samples=1000
+)
+```
+
+#### Constructor Parameters
+
+**DatasetBuilder() Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `use_openrouter` | bool | False | Enable OpenRouter mode |
+| `openrouter_api_key` | str | None | OpenRouter API key (required if use_openrouter=True) |
+| `openrouter_model` | str | "qwen/qwen3-next-80b-a3b-instruct" | OpenRouter model identifier |
+| `openrouter_max_workers` | int | 1 | Number of parallel workers for API calls |
+
+**build_caa_dataset() Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | str | Yes | Model identifier (not used in OpenRouter mode, pass "") |
+| `personality` | str | Yes | Target personality trait |
+| `output_dir` | Path | Yes | Output directory for dataset |
+| `limit_samples` | int | Yes | Maximum number of samples to generate |
+| `dataset_name` | str | No | Hugging Face dataset name (default: "allenai/soda") |
 
 ### OpenRouter vs Local Model
 
@@ -148,6 +273,10 @@ psyctl dataset.build.caa \
 **Dataset Options:**
 - `--dataset`: Hugging Face dataset name (default: "allenai/soda")
 - `--limit-samples`: Maximum number of samples to generate (default: all)
+
+**Template Options:**
+- `--caa-question-template`: Path to custom Jinja2 template for CAA questions (.j2 file)
+- `--roleplay-prompt-template`: Path to custom Jinja2 template for roleplay prompts (.j2 file)
 
 **Performance Options:**
 - `--batch-size`: Batch size for inference (default: from config, local mode only)
@@ -486,6 +615,145 @@ $env:PSYCTL_CHECKPOINT_INTERVAL = "100"
 ```bash
 --personality "Extroversion, Machiavellianism"
 ```
+
+### Custom Templates
+
+**Using Jinja2 Templates:**
+
+PSYCTL supports custom Jinja2 templates to customize prompt generation. This allows you to:
+- Support different languages
+- Customize prompt styles
+- Adapt to specific use cases
+
+**Template Types:**
+
+1. **CAA Question Template** (`caa_question.j2`): Formats the final question with situation and answer options
+2. **Roleplay Prompt Template** (`roleplay_prompt.j2`): Generates character responses
+
+**Default Templates Location:**
+```
+src/psyctl/templates/
+├── caa_question.j2
+└── roleplay_prompt.j2
+```
+
+**Creating Custom Templates:**
+
+1. Create a custom CAA question template:
+
+```jinja2
+# custom_caa.j2
+[상황]
+{{ situation }}
+[질문]
+당신은 {{ char_name }}입니다. 이 상황에서 어떻게 반응하시겠습니까?
+1. {{ answer_1 }}
+2. {{ answer_2 }}
+[답변]
+```
+
+2. Create a custom roleplay prompt template:
+
+```jinja2
+# custom_roleplay.j2
+# 개요
+이것은 롤플레이 세션입니다.
+당신(어시스턴트 또는 모델)의 역할은 {{ char_name }}입니다.
+사용자의 역할은 {{ user_name }}입니다.
+{{ char_name }}의 짧은 반응을 한 문장으로 작성하세요.
+
+# {{ char_name }}에 대하여
+{{ p2 }}
+
+# 상황
+{{ situation }}
+```
+
+3. Use custom templates:
+
+```bash
+psyctl dataset.build.caa \
+  --model "google/gemma-2-2b-it" \
+  --personality "Extroversion" \
+  --output "./dataset/korean" \
+  --caa-question-template "./templates/custom_caa.j2" \
+  --roleplay-prompt-template "./templates/custom_roleplay.j2"
+```
+
+**Available Template Variables:**
+
+**CAA Question Template:**
+- `{{ char_name }}`: Character name
+- `{{ situation }}`: Conversation context
+- `{{ answer_1 }}`: First answer option
+- `{{ answer_2 }}`: Second answer option
+
+**Roleplay Prompt Template:**
+- `{{ user_name }}`: User/asker name
+- `{{ char_name }}`: Character name
+- `{{ p2 }}`: Personality description
+- `{{ situation }}`: Conversation context
+
+**Programmatic Usage:**
+
+```python
+from psyctl import DatasetBuilder
+from pathlib import Path
+
+# Initialize with custom templates
+builder = DatasetBuilder(
+    caa_question_template="./templates/custom_caa.j2",
+    roleplay_prompt_template="./templates/custom_roleplay.j2"
+)
+
+# Build dataset
+output_file = builder.build_caa_dataset(
+    model="google/gemma-2-2b-it",
+    personality="Extroversion",
+    output_dir=Path("./dataset/custom"),
+    limit_samples=100
+)
+```
+**Dynamic Template Management:**
+
+You can also get and set templates dynamically at runtime without file operations:
+
+```python
+from psyctl import DatasetBuilder
+
+builder = DatasetBuilder()
+
+# Get current template as string
+current_template = builder.get_caa_question_template()
+print(current_template)
+
+# Modify and set new template
+modified_template = current_template.replace("[Situation]", "[Scenario]")
+builder.set_caa_question_template(modified_template)
+
+# Verify the change
+new_template = builder.get_caa_question_template()
+assert "[Scenario]" in new_template
+
+# Now build dataset with modified template
+output_file = builder.build_caa_dataset(
+    model="google/gemma-2-2b-it",
+    personality="Extroversion",
+    output_dir=Path("./dataset/modified"),
+    limit_samples=100
+)
+```
+
+**Template Management Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `get_caa_question_template()` | Get current CAA question template as string |
+| `get_roleplay_prompt_template()` | Get current roleplay prompt template as string |
+| `set_caa_question_template(template_str)` | Set CAA question template from string |
+| `set_roleplay_prompt_template(template_str)` | Set roleplay prompt template from string |
+
+
 ## References
 
 - [SODA Dataset](https://huggingface.co/datasets/allenai/soda)

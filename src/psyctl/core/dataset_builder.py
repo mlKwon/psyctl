@@ -42,6 +42,7 @@ import threading
 from datasets import load_dataset
 from tqdm import tqdm, trange
 import torch
+import jinja2
 
 from psyctl.core.logger import get_logger
 from psyctl.core.prompt import P2
@@ -80,7 +81,7 @@ class DatasetBuilder:
         _build_caa_dataset: Core dataset building logic
     """
 
-    def __init__(self, use_openrouter: bool = False, openrouter_api_key: str = None, openrouter_model: str = None, openrouter_max_workers: int = 1):
+    def __init__(self, use_openrouter: bool = False, openrouter_api_key: str = None, openrouter_model: str = None, openrouter_max_workers: int = 1, caa_question_template: str = None, roleplay_prompt_template: str = None):
         """
         Initialize DatasetBuilder with required components.
 
@@ -92,6 +93,8 @@ class DatasetBuilder:
             openrouter_api_key (str): OpenRouter API key (required if use_openrouter=True)
             openrouter_model (str): OpenRouter model identifier
             openrouter_max_workers (int): Number of parallel workers for OpenRouter (1 = sequential)
+            caa_question_template (str): Path to custom Jinja2 template for CAA questions (optional)
+            roleplay_prompt_template (str): Path to custom Jinja2 template for roleplay prompts (optional)
         """
         self.use_openrouter = use_openrouter
         self.openrouter_api_key = openrouter_api_key
@@ -108,13 +111,23 @@ class DatasetBuilder:
         self.write_lock = threading.Lock()
         self.checkpoint_data = []
 
+        # Initialize Jinja2 environment
+        self.jinja_env = jinja2.Environment(
+            loader=jinja2.PackageLoader('psyctl', 'templates'),
+            autoescape=jinja2.select_autoescape()
+        )
+
+        # Store custom template paths
+        self.caa_question_template_path = caa_question_template
+        self.roleplay_prompt_template_path = roleplay_prompt_template
+
         # Validate OpenRouter configuration
         if self.use_openrouter and not self.openrouter_api_key:
             raise ValueError("OpenRouter API key is required when use_openrouter=True")
 
     def build_caa_dataset(
         self, model: str, personality: str, output_dir: Path, limit_samples: int, dataset_name: str = "allenai/soda"
-    ) -> int:
+    ) -> Path:
         """
         Build CAA dataset for given personality traits.
 
@@ -129,20 +142,20 @@ class DatasetBuilder:
             dataset_name (str): Hugging Face dataset identifier (default: "allenai/soda")
 
         Returns:
-            int: Number of generated samples
+            Path: Path to the generated JSONL file
 
         Raises:
             Exception: If any step in the dataset building process fails
 
         Example:
             >>> builder = DatasetBuilder()
-            >>> num_samples = builder.build_caa_dataset(
+            >>> output_file = builder.build_caa_dataset(
             ...     model="meta-llama/Llama-3.2-3B-Instruct",
             ...     personality="Extroversion",
             ...     output_dir=Path("./dataset"),
             ...     limit_samples=1000
             ... )
-            >>> print(f"Generated {num_samples} samples")
+            >>> print(f"Generated dataset: {output_file}")
         """
         self.logger.info(f"Building CAA dataset for model: {model}")
         self.logger.info(f"Personality traits: {personality}")
@@ -168,7 +181,7 @@ class DatasetBuilder:
             self._load_dataset(dataset_name)
 
             # 3. Build CAA dataset
-            num_samples = self._build_caa_dataset(output_dir, limit_samples)
+            output_file = self._build_caa_dataset(output_dir, limit_samples)
 
             self.logger.info(f"Finished building CAA dataset")
 
@@ -177,7 +190,7 @@ class DatasetBuilder:
                 self.logger.info(f"Total OpenRouter requests: {self.openrouter_client.get_total_requests()}")
                 self.logger.info(f"Total OpenRouter cost: ${self.openrouter_client.get_total_cost():.6f}")
 
-            return num_samples
+            return output_file
 
         except Exception as e:
             self.logger.error(f"Failed to build CAA dataset: {e}")
@@ -293,6 +306,166 @@ class DatasetBuilder:
 
         self.logger.info(f"Finished generating samples.")
 
+    def _load_template(self, template_name: str, custom_template_path: str = None) -> jinja2.Template:
+        """
+        Load a Jinja2 template.
+
+        Loads a custom template from file if provided, otherwise loads the default
+        template from the templates directory. Also checks for in-memory custom templates
+        set via set_*_template() methods.
+
+        Args:
+            template_name (str): Name of the default template file (e.g., 'caa_question.j2')
+            custom_template_path (str): Path to custom template file (optional)
+
+        Returns:
+            jinja2.Template: Loaded template object
+
+        Raises:
+            FileNotFoundError: If custom template path is provided but file doesn't exist
+        """
+        # Check for in-memory custom templates first
+        if template_name == 'caa_question.j2' and hasattr(self, '_custom_caa_template'):
+            return self.jinja_env.from_string(self._custom_caa_template)
+        if template_name == 'roleplay_prompt.j2' and hasattr(self, '_custom_roleplay_template'):
+            return self.jinja_env.from_string(self._custom_roleplay_template)
+
+        # Load from file if path provided
+        if custom_template_path:
+            custom_path = Path(custom_template_path)
+            if not custom_path.exists():
+                raise FileNotFoundError(f"Custom template not found: {custom_template_path}")
+            with open(custom_path, 'r', encoding='utf-8') as f:
+                template_content = f.read()
+            return self.jinja_env.from_string(template_content)
+
+        # Load default template
+        return self.jinja_env.get_template(template_name)
+
+    def get_caa_question_template(self) -> str:
+        """
+        Get the current CAA question template content as string.
+
+        Returns:
+            str: Template content as string
+
+        Example:
+            >>> builder = DatasetBuilder()
+            >>> template_str = builder.get_caa_question_template()
+            >>> print(template_str)
+        """
+        # Check for in-memory custom template first
+        if hasattr(self, '_custom_caa_template'):
+            return self._custom_caa_template
+
+        # Load from file if custom path provided
+        if self.caa_question_template_path:
+            with open(self.caa_question_template_path, 'r', encoding='utf-8') as f:
+                return f.read()
+
+        # Load default template from package by reading the source file
+        import importlib.resources
+        try:
+            # Python 3.9+
+            template_content = importlib.resources.files('psyctl.templates').joinpath('caa_question.j2').read_text(encoding='utf-8')
+        except AttributeError:
+            # Fallback for older Python versions
+            with importlib.resources.path('psyctl.templates', 'caa_question.j2') as template_path:
+                with open(template_path, 'r', encoding='utf-8') as f:
+                    template_content = f.read()
+        return template_content
+
+    def get_roleplay_prompt_template(self) -> str:
+        """
+        Get the current roleplay prompt template content as string.
+
+        Returns:
+            str: Template content as string
+
+        Example:
+            >>> builder = DatasetBuilder()
+            >>> template_str = builder.get_roleplay_prompt_template()
+            >>> print(template_str)
+        """
+        # Check for in-memory custom template first
+        if hasattr(self, '_custom_roleplay_template'):
+            return self._custom_roleplay_template
+
+        # Load from file if custom path provided
+        if self.roleplay_prompt_template_path:
+            with open(self.roleplay_prompt_template_path, 'r', encoding='utf-8') as f:
+                return f.read()
+
+        # Load default template from package by reading the source file
+        import importlib.resources
+        try:
+            # Python 3.9+
+            template_content = importlib.resources.files('psyctl.templates').joinpath('roleplay_prompt.j2').read_text(encoding='utf-8')
+        except AttributeError:
+            # Fallback for older Python versions
+            with importlib.resources.path('psyctl.templates', 'roleplay_prompt.j2') as template_path:
+                with open(template_path, 'r', encoding='utf-8') as f:
+                    template_content = f.read()
+        return template_content
+
+    def set_caa_question_template(self, template_content: str) -> None:
+        """
+        Set a custom CAA question template from string content.
+
+        This method allows setting a template directly from a string without
+        needing to save it to a file first.
+
+        Args:
+            template_content (str): Jinja2 template content as string
+
+        Example:
+            >>> builder = DatasetBuilder()
+            >>> custom_template = '''
+            ... [Custom Situation]
+            ... {{ situation }}
+            ... [Custom Question]
+            ... {{ char_name }}, what would you say?
+            ... 1. {{ answer_1 }}
+            ... 2. {{ answer_2 }}
+            ... [Custom Answer]
+            ... '''
+            >>> builder.set_caa_question_template(custom_template)
+        """
+        # Store template content in a temporary attribute
+        self._custom_caa_template = template_content
+        # Clear file path since we're using string template
+        self.caa_question_template_path = None
+
+    def set_roleplay_prompt_template(self, template_content: str) -> None:
+        """
+        Set a custom roleplay prompt template from string content.
+
+        This method allows setting a template directly from a string without
+        needing to save it to a file first.
+
+        Args:
+            template_content (str): Jinja2 template content as string
+
+        Example:
+            >>> builder = DatasetBuilder()
+            >>> custom_template = '''
+            ... # Overview
+            ... You are {{ char_name }}.
+            ... User is {{ user_name }}.
+            ...
+            ... # About {{ char_name }}
+            ... {{ p2 }}
+            ...
+            ... # Situation
+            ... {{ situation }}
+            ... '''
+            >>> builder.set_roleplay_prompt_template(custom_template)
+        """
+        # Store template content in a temporary attribute
+        self._custom_roleplay_template = template_content
+        # Clear file path since we're using string template
+        self.roleplay_prompt_template_path = None
+
     def _get_answer(
         self,
         user_name: str,
@@ -321,21 +494,14 @@ class DatasetBuilder:
             The prompt structure follows a role-playing format with clear instructions
             for the model to adopt the character's personality and respond appropriately.
         """
-        rp_prompt = [
-            "# Overview",
-            "This is role playing session.",
-            f"Your(Assistant or Model) role is {char_name}. You have to pretend to be {char_name}.",
-            f"User's role is {user_name}.",
-            f"Write short reaction of {char_name} within the situation in one sentence.",
-            "",
-            f"# About {char_name}.",
-            f"{p2}",
-            "",
-            "",
-            "# Situation",
-            f"{situation}",
-        ]
-        prompt = "\n".join(rp_prompt)
+        # Load and render template
+        template = self._load_template('roleplay_prompt.j2', self.roleplay_prompt_template_path)
+        prompt = template.render(
+            user_name=user_name,
+            char_name=char_name,
+            p2=p2,
+            situation=situation
+        )
         if verbose:
             print(prompt)
 
@@ -425,24 +591,16 @@ class DatasetBuilder:
         if not batch_contexts:
             return []
 
-        # Prepare prompts for all contexts
+        # Prepare prompts for all contexts using template
+        template = self._load_template('roleplay_prompt.j2', self.roleplay_prompt_template_path)
         prompts = []
         for user_name, char_name, p2, situation in batch_contexts:
-            rp_prompt = [
-                "# Overview",
-                "This is role playing session.",
-                f"Your(Assistant or Model) role is {char_name}. You have to pretend to be {char_name}.",
-                f"User's role is {user_name}.",
-                f"Write short reaction of {char_name} within the situation in one sentence.",
-                "",
-                f"# About {char_name}.",
-                f"{p2}",
-                "",
-                "",
-                "# Situation",
-                f"{situation}",
-            ]
-            prompt = "\n".join(rp_prompt)
+            prompt = template.render(
+                user_name=user_name,
+                char_name=char_name,
+                p2=p2,
+                situation=situation
+            )
             prompts.append(prompt)
 
         # OpenRouter mode
@@ -559,18 +717,16 @@ class DatasetBuilder:
         """
         answer_1 = answer_1.strip().replace("\n", "")
         answer_2 = answer_2.strip().replace("\n", "")
-        template = "\n".join(
-            [
-                "[Situation]",
-                f"{situation.strip()}",
-                "[Question]",
-                f"You are {char_name}. What would your response be in this situation?",  # Fixed grammar
-                f"1. {answer_1}",
-                f"2. {answer_2}",
-                "[Answer]",
-            ]
+
+        # Load and render template
+        template = self._load_template('caa_question.j2', self.caa_question_template_path)
+        result = template.render(
+            char_name=char_name,
+            situation=situation.strip(),
+            answer_1=answer_1,
+            answer_2=answer_2
         )
-        return template
+        return result
 
     def _save_sample_to_jsonl(self, sample: Dict[str, str], output_file: Path) -> None:
         """
@@ -643,7 +799,7 @@ class DatasetBuilder:
                 self.logger.warning(f"Failed to load checkpoint: {e}")
         return None
 
-    def _build_caa_dataset(self, output_dir: Path, limit_samples: int) -> int:
+    def _build_caa_dataset(self, output_dir: Path, limit_samples: int) -> Path:
         """
         Core CAA dataset building logic with batch processing.
 
@@ -657,7 +813,7 @@ class DatasetBuilder:
             limit_samples (int): Maximum number of samples to generate
 
         Returns:
-            int: Number of successfully generated samples
+            Path: Path to the generated JSONL file
 
         Note:
             Uses batch processing for improved efficiency, checkpoint support
@@ -696,10 +852,12 @@ class DatasetBuilder:
         context_batch = []
         batch_size = INFERENCE_BATCH_SIZE // 2  # Each context generates 2 inference calls
 
-        return self._build_caa_dataset_sync(
+        self._build_caa_dataset_sync(
             output_file, limit_samples, num_generated,
             positive_template, neutral_template, batch_size
         )
+
+        return output_file
 
     def _build_caa_dataset_sync(
         self, output_file: Path, limit_samples: int, num_generated: int,

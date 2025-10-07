@@ -53,6 +53,18 @@ logger = get_logger("dataset")
     default=1,
     help="Number of parallel workers for OpenRouter API (1 = sequential, higher = parallel)",
 )
+@click.option(
+    "--caa-question-template",
+    required=False,
+    type=click.Path(exists=True),
+    help="Path to custom Jinja2 template for CAA questions (.j2 file)",
+)
+@click.option(
+    "--roleplay-prompt-template",
+    required=False,
+    type=click.Path(exists=True),
+    help="Path to custom Jinja2 template for roleplay prompts (.j2 file)",
+)
 def build_caa(
     model: str,
     personality: str,
@@ -62,6 +74,8 @@ def build_caa(
     openrouter_api_key: str,
     openrouter_model: str,
     openrouter_max_workers: int,
+    caa_question_template: str,
+    roleplay_prompt_template: str,
 ):
     """Build CAA dataset for steering vector extraction."""
     # Determine if using OpenRouter or local model
@@ -104,11 +118,13 @@ def build_caa(
             openrouter_api_key=openrouter_api_key,
             openrouter_model=openrouter_model,
             openrouter_max_workers=openrouter_max_workers,
+            caa_question_template=caa_question_template,
+            roleplay_prompt_template=roleplay_prompt_template,
         )
-        builder.build_caa_dataset(model, personality, Path(output), limit_samples, dataset)
+        output_file = builder.build_caa_dataset(model, personality, Path(output), limit_samples, dataset)
 
-        logger.info(f"Dataset built successfully at {output}")
-        console.print(f"[green]Dataset built successfully at {output}[/green]")
+        logger.info(f"Dataset built successfully: {output_file}")
+        console.print(f"[green]Dataset built successfully: {output_file}[/green]")
     except Exception as e:
         logger.error(f"Failed to build dataset: {e}")
         raise
