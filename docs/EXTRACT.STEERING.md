@@ -255,19 +255,6 @@ The CAA extraction method computes steering vectors as the mean difference betwe
 3. Calculate: `steering_vector = mean(positive_activations) - mean(neutral_activations)`
 4. Optionally normalize to unit length
 
-**Key Features:**
-- Memory efficient: Uses incremental mean calculation
-- Batch processing: Processes multiple prompts simultaneously
-- Multi-layer support: Extracts from multiple layers in one pass
-- Token position detection: Automatically finds last relevant token position
-- Fast: Statistical method without optimization
-
-**When to use:**
-- Quick steering vector extraction
-- Works well for personality trait steering
-- Suitable for most LLM architectures
-- When computational resources are limited
-
 **Example:**
 ```bash
 psyctl extract.steering \
@@ -291,19 +278,6 @@ BiPO is an optimization-based method that learns steering vectors through prefer
    - Update steering parameters via gradient descent
 4. Extract final optimized steering vectors
 5. Optionally normalize to unit length
-
-**Key Features:**
-- Optimization-based: Learns vectors through gradient descent
-- Preference learning: Uses DPO-style loss function
-- Multi-layer support: Jointly optimizes multiple layers
-- Flexible: Tunable hyperparameters (learning rate, beta, epochs)
-- More precise: Can capture subtle steering effects
-
-**When to use:**
-- When higher quality steering is needed
-- For complex personality traits
-- When computational resources are available
-- For research and experimentation
 
 **Hyperparameters:**
 - `--lr`: Learning rate (default: 5e-4)
@@ -330,10 +304,8 @@ psyctl extract.steering \
 | Feature | CAA (mean_contrastive) | BiPO |
 |---------|------------------------|------|
 | Speed | Fast | Slower (optimization) |
-| Quality | Good | Better (optimization-based) |
 | Resource Usage | Low | Higher (training) |
 | Hyperparameters | None | lr, beta, epochs |
-| Layer Target | Projections (down_proj) | Layer modules (mlp) |
 | Use Case | Quick steering | High-quality steering |
 
 ## Multi-Layer Extraction
