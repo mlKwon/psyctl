@@ -249,35 +249,6 @@ export PSYCTL_INFERENCE_BATCH_SIZE="32"
 - Low-end GPUs (4-8GB VRAM): 8-16
 - CPU: 4-8
 
-### Performance Features
-
-**Batch Processing:**
-- Batch inference for improved GPU utilization
-- Parallel generation of positive and neutral responses
-- Configurable batch size via environment variable
-
-**Memory Management:**
-- Dynamic batching based on GPU memory
-- Efficient tensor management
-- Automatic garbage collection
-
-**Progress Tracking:**
-- Real-time progress bars
-- ETA estimation
-- Samples per second metrics
-
-### Performance Tips
-
-1. **Increase batch size** for better GPU utilization
-2. **Use SSD storage** for output directory
-3. **Monitor GPU memory** to find optimal batch size
-4. **Enable checkpointing** for long runs
-
-```powershell
-# Optimal configuration for performance
-$env:PSYCTL_INFERENCE_BATCH_SIZE = "32"
-$env:PSYCTL_CHECKPOINT_INTERVAL = "100"
-```
 
 ## Checkpoint and Resume
 
@@ -515,22 +486,6 @@ $env:PSYCTL_CHECKPOINT_INTERVAL = "100"
 ```bash
 --personality "Extroversion, Machiavellianism"
 ```
-
-**Supported traits:**
-- Big Five: Extroversion, Agreeableness, Conscientiousness, Neuroticism, Openness
-- Dark Triad: Machiavellianism, Narcissism, Psychopathy
-
-### Sample Count
-
-**For testing:**
-- 10-100 samples: Quick validation
-- 100-1000 samples: Initial experiments
-
-**For production:**
-- 1000-5000 samples: Good steering vectors
-- 5000-10000 samples: High-quality vectors
-- 10000+ samples: Research-grade datasets
-
 ## References
 
 - [SODA Dataset](https://huggingface.co/datasets/allenai/soda)

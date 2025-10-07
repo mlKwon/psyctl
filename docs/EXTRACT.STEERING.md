@@ -476,7 +476,7 @@ If activations seem incorrect, verify token position detection for your model ar
 ## References
 
 - [CAA Paper: Contrastive Activation Addition](https://arxiv.org/abs/2312.06681)
-- [BiPO Paper: Bi-Directional Preference Optimization](https://arxiv.org/abs/2410.15283)
+- [BiPO Paper: Bi-Directional Preference Optimization](https://arxiv.org/abs/2406.00045)
 - [Representation Engineering](https://arxiv.org/abs/2310.01405)
 - [PSYCTL Dataset Building](./DATASET.BUILD.CAA.md)
 - [PSYCTL Steering Application](./STEERING.md)
