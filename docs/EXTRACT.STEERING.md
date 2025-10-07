@@ -83,9 +83,9 @@ Common layer targets:
 
 ## Extraction Methods
 
-### MeanContrastiveActivationVector (Default)
+### MeanContrastiveActivationVector (CAA)
 
-The default extraction method computes steering vectors as the mean difference between positive and neutral activations:
+The CAA extraction method computes steering vectors as the mean difference between positive and neutral activations:
 
 **Algorithm:**
 1. Load CAA dataset containing positive/neutral prompt pairs
@@ -101,11 +101,81 @@ The default extraction method computes steering vectors as the mean difference b
 - Batch processing: Processes multiple prompts simultaneously
 - Multi-layer support: Extracts from multiple layers in one pass
 - Token position detection: Automatically finds last relevant token position
+- Fast: Statistical method without optimization
 
 **When to use:**
-- Default choice for CAA-based steering
+- Quick steering vector extraction
 - Works well for personality trait steering
 - Suitable for most LLM architectures
+- When computational resources are limited
+
+**Example:**
+```bash
+psyctl extract.steering \
+  --model "meta-llama/Llama-3.2-3B-Instruct" \
+  --layer "model.layers[13].mlp.down_proj" \
+  --dataset "./dataset/caa" \
+  --output "./steering_vector/out.safetensors" \
+  --method mean_contrastive
+```
+
+### BiPO (Bi-Directional Preference Optimization)
+
+BiPO is an optimization-based method that learns steering vectors through preference learning:
+
+**Algorithm:**
+1. Load CAA dataset containing positive/neutral prompt pairs
+2. Initialize learnable steering parameters for each layer
+3. For each training epoch:
+   - Apply steering to model activations
+   - Compute preference loss between positive/neutral outputs
+   - Update steering parameters via gradient descent
+4. Extract final optimized steering vectors
+5. Optionally normalize to unit length
+
+**Key Features:**
+- Optimization-based: Learns vectors through gradient descent
+- Preference learning: Uses DPO-style loss function
+- Multi-layer support: Jointly optimizes multiple layers
+- Flexible: Tunable hyperparameters (learning rate, beta, epochs)
+- More precise: Can capture subtle steering effects
+
+**When to use:**
+- When higher quality steering is needed
+- For complex personality traits
+- When computational resources are available
+- For research and experimentation
+
+**Hyperparameters:**
+- `--lr`: Learning rate (default: 5e-4)
+- `--beta`: Beta parameter for preference loss (default: 0.1)
+- `--epochs`: Number of training epochs (default: 10)
+
+**Example:**
+```bash
+psyctl extract.steering \
+  --model "meta-llama/Llama-3.2-3B-Instruct" \
+  --layer "model.layers[13].mlp" \
+  --dataset "./dataset/caa" \
+  --output "./steering_vector/out.safetensors" \
+  --method bipo \
+  --lr 5e-4 \
+  --beta 0.1 \
+  --epochs 10
+```
+
+**Note:** BiPO requires layer modules (e.g., `model.layers[13].mlp`) rather than specific projections (e.g., `model.layers[13].mlp.down_proj`).
+
+### Method Comparison
+
+| Feature | CAA (mean_contrastive) | BiPO |
+|---------|------------------------|------|
+| Speed | Fast | Slower (optimization) |
+| Quality | Good | Better (optimization-based) |
+| Resource Usage | Low | Higher (training) |
+| Hyperparameters | None | lr, beta, epochs |
+| Layer Target | Projections (down_proj) | Layer modules (mlp) |
+| Use Case | Quick steering | High-quality steering |
 
 ## Multi-Layer Extraction
 
@@ -135,7 +205,7 @@ Steering vectors are saved in safetensors format with embedded metadata:
     # ... more layers
     "__metadata__": {
         "model": "meta-llama/Llama-3.2-3B-Instruct",
-        "method": "mean_contrastive",
+        "method": "mean_contrastive",  # or "bipo"
         "layers": ["model.layers[13].mlp.down_proj", "model.layers[14].mlp.down_proj"],
         "dataset_path": "./dataset/caa",
         "dataset_samples": 20000,
@@ -232,6 +302,7 @@ from psyctl.core.extractors.my_method_extractor import MyMethodExtractor
 class SteeringExtractor:
     EXTRACTORS = {
         'mean_contrastive': MeanContrastiveActivationVectorExtractor,
+        'bipo': BiPOVectorExtractor,
         'my_method': MyMethodExtractor,  # Add your extractor
     }
 
@@ -255,10 +326,18 @@ Add method selection to CLI command in `src/psyctl/commands/extract.py`:
 @click.option("--dataset", required=True, type=click.Path())
 @click.option("--output", required=True, type=click.Path())
 @click.option("--method", default="mean_contrastive",
-              help="Extraction method: mean_contrastive, my_method")
-def steering(model: str, layer: tuple, dataset: str, output: str, method: str):
+              help="Extraction method: mean_contrastive, bipo, my_method")
+@click.option("--lr", type=float, default=5e-4, help="Learning rate for BiPO")
+@click.option("--beta", type=float, default=0.1, help="Beta parameter for BiPO")
+@click.option("--epochs", type=int, default=10, help="Number of epochs for BiPO")
+def steering(model: str, layer: tuple, dataset: str, output: str, method: str,
+             lr: float, beta: float, epochs: int):
     # ...
-    extractor.extract(method=method, ...)
+    method_params = {}
+    if method == "bipo":
+        method_params = {"lr": lr, "beta": beta, "epochs": epochs}
+
+    extractor.extract(method=method, **method_params)
 ```
 
 ### 4. Add Tests
@@ -397,6 +476,7 @@ If activations seem incorrect, verify token position detection for your model ar
 ## References
 
 - [CAA Paper: Contrastive Activation Addition](https://arxiv.org/abs/2312.06681)
+- [BiPO Paper: Bi-Directional Preference Optimization](https://arxiv.org/abs/2410.15283)
 - [Representation Engineering](https://arxiv.org/abs/2310.01405)
 - [PSYCTL Dataset Building](./DATASET.BUILD.CAA.md)
 - [PSYCTL Steering Application](./STEERING.md)
