@@ -235,29 +235,6 @@ num_samples = dataset_builder.build_caa_dataset(
 | `limit_samples` | int | Yes | Maximum number of samples to generate |
 | `dataset_name` | str | No | Hugging Face dataset name (default: "allenai/soda") |
 
-### OpenRouter vs Local Model
-
-| Feature | OpenRouter | Local Model |
-|---------|-----------|-------------|
-| GPU Required | No | Yes |
-| Cost | Per API call | Free (after hardware) |
-| Model Size | Up to 405B+ | Limited by VRAM |
-| Speed (small datasets) | Slower | Faster |
-| Speed (with parallel) | Competitive | Faster |
-| Setup Time | Instant | Model download required |
-
-**When to use OpenRouter:**
-- No GPU available
-- Need large models (70B+, 405B)
-- Testing different models
-- One-time dataset generation
-
-**When to use Local Model:**
-- GPU available
-- Frequent dataset generation
-- Large-scale production
-- Cost optimization
-
 ### Command-Line Options
 
 **Required Options:**
