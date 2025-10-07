@@ -47,7 +47,25 @@ logger = get_logger("extract")
     "--method",
     type=str,
     default="mean_contrastive",
-    help="Extraction method (default: mean_contrastive)",
+    help="Extraction method: mean_contrastive (CAA) or bipo (BiPO optimization)",
+)
+@click.option(
+    "--lr",
+    type=float,
+    default=5e-4,
+    help="Learning rate for BiPO optimization (default: 5e-4)",
+)
+@click.option(
+    "--beta",
+    type=float,
+    default=0.1,
+    help="Beta parameter for BiPO loss (default: 0.1)",
+)
+@click.option(
+    "--epochs",
+    type=int,
+    default=10,
+    help="Number of training epochs for BiPO (default: 10)",
 )
 def steering(
     model: str,
@@ -58,40 +76,52 @@ def steering(
     batch_size: Optional[int],
     normalize: bool,
     method: str,
+    lr: float,
+    beta: float,
+    epochs: int,
 ):
     """
-    Extract steering vectors using CAA method.
+    Extract steering vectors using various methods (CAA or BiPO).
 
     Supports single or multi-layer extraction. Specify layers using either:
     - Multiple --layer flags: --layer "model.layers[13].mlp.down_proj" --layer "model.layers[14].mlp.down_proj"
     - Comma-separated --layers: --layers "model.layers[13].mlp.down_proj,model.layers[14].mlp.down_proj"
 
+    Methods:
+    - mean_contrastive (CAA): Fast statistical method using mean activation difference
+    - bipo: Optimization-based method using preference learning
+
     Examples:
 
     \b
-    # Single layer extraction
+    # CAA method (fast, statistical)
     psyctl extract.steering \\
       --model "meta-llama/Llama-3.2-3B-Instruct" \\
       --layer "model.layers[13].mlp.down_proj" \\
       --dataset "./dataset/caa" \\
-      --output "./steering_vector/out.safetensors"
+      --output "./steering_vector/out.safetensors" \\
+      --method mean_contrastive
 
     \b
-    # Multi-layer extraction with repeated --layer
+    # BiPO method (optimization-based)
     psyctl extract.steering \\
       --model "meta-llama/Llama-3.2-3B-Instruct" \\
-      --layer "model.layers[13].mlp.down_proj" \\
-      --layer "model.layers[14].mlp.down_proj" \\
+      --layer "model.layers[13].mlp" \\
       --dataset "./dataset/caa" \\
-      --output "./steering_vector/out.safetensors"
+      --output "./steering_vector/out.safetensors" \\
+      --method bipo \\
+      --lr 5e-4 \\
+      --beta 0.1 \\
+      --epochs 10
 
     \b
-    # Multi-layer extraction with comma-separated --layers
+    # Multi-layer extraction with BiPO
     psyctl extract.steering \\
       --model "meta-llama/Llama-3.2-3B-Instruct" \\
-      --layers "model.layers[13].mlp.down_proj,model.layers[14].mlp.down_proj" \\
+      --layers "model.layers[13].mlp,model.layers[14].mlp" \\
       --dataset "./dataset/caa" \\
-      --output "./steering_vector/out.safetensors"
+      --output "./steering_vector/out.safetensors" \\
+      --method bipo
     """
     logger.info("Starting steering vector extraction")
     logger.info(f"Model: {model}")
@@ -131,8 +161,25 @@ def steering(
     if batch_size:
         console.print(f"Batch size: {batch_size}")
 
+    # Display BiPO parameters if using BiPO method
+    if method == "bipo":
+        console.print(f"[yellow]BiPO Parameters:[/yellow]")
+        console.print(f"  - Learning rate: {lr}")
+        console.print(f"  - Beta: {beta}")
+        console.print(f"  - Epochs: {epochs}")
+
     try:
         extractor = SteeringExtractor()
+
+        # Prepare method-specific parameters
+        method_params = {}
+        if method == "bipo":
+            method_params = {
+                "lr": lr,
+                "beta": beta,
+                "epochs": epochs,
+            }
+
         vectors = extractor.extract_caa(
             model_name=model,
             layers=layer_list,
@@ -141,6 +188,7 @@ def steering(
             batch_size=batch_size,
             normalize=normalize,
             method=method,
+            **method_params,
         )
 
         logger.info(f"Steering vectors extracted successfully to {output}")

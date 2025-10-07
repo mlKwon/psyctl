@@ -5,7 +5,10 @@ from typing import Dict, List, Optional
 
 import torch
 
-from psyctl.core.extractors import MeanContrastiveActivationVectorExtractor
+from psyctl.core.extractors import (
+    BiPOVectorExtractor,
+    MeanContrastiveActivationVectorExtractor,
+)
 from psyctl.core.logger import get_logger
 from psyctl.models.llm_loader import LLMLoader
 from psyctl.models.vector_store import VectorStore
@@ -16,6 +19,7 @@ class SteeringExtractor:
 
     EXTRACTORS = {
         "mean_contrastive": MeanContrastiveActivationVectorExtractor,
+        "bipo": BiPOVectorExtractor,
     }
 
     def __init__(self):
@@ -32,6 +36,7 @@ class SteeringExtractor:
         batch_size: Optional[int] = None,
         normalize: bool = False,
         method: str = "mean_contrastive",
+        **method_params,
     ) -> Dict[str, torch.Tensor]:
         """
         Extract steering vectors using CAA method.
@@ -95,6 +100,7 @@ class SteeringExtractor:
                 dataset_path=dataset_path,
                 batch_size=batch_size,
                 normalize=normalize,
+                **method_params,
             )
 
             # 4. Prepare metadata
