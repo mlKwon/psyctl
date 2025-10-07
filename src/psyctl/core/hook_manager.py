@@ -55,6 +55,10 @@ class ActivationHookManager:
                 input: Input tensors to the module
                 output: Output tensor from the module (expected shape: [B, T, H])
             """
+            # Handle tuple output (some layers return (hidden_states, optional_outputs))
+            if isinstance(output, tuple):
+                output = output[0]
+
             # Detach and move to CPU for memory efficiency
             t = output.detach().cpu()  # Shape: [B, T, H]
 
