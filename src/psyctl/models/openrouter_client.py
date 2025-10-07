@@ -20,6 +20,7 @@ Example Usage:
     )
 """
 
+import html
 import json
 import time
 from typing import Dict, List, Optional, Tuple
@@ -71,6 +72,8 @@ class OpenRouterClient:
         temperature: float = 0.7,
         max_tokens: int = 100,
         system_prompt: Optional[str] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
     ) -> Tuple[str, str]:
         """
         Generate text response from OpenRouter API.
@@ -81,6 +84,8 @@ class OpenRouterClient:
             temperature (float): Sampling temperature (0.0-2.0)
             max_tokens (int): Maximum tokens to generate
             system_prompt (Optional[str]): System prompt for context
+            top_k (Optional[int]): Top-k sampling parameter
+            top_p (Optional[float]): Top-p (nucleus) sampling parameter
 
         Returns:
             Tuple[str, str]: (generation_id, generated_text)
@@ -95,6 +100,18 @@ class OpenRouterClient:
 
         messages.append({"role": "user", "content": prompt})
 
+        # Build request body
+        request_body = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if top_k is not None:
+            request_body["top_k"] = top_k
+        if top_p is not None:
+            request_body["top_p"] = top_p
+
         try:
             response = requests.post(
                 f"{self.base_url}/chat/completions",
@@ -102,12 +119,7 @@ class OpenRouterClient:
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                },
+                json=request_body,
                 timeout=60,
             )
 
@@ -119,6 +131,17 @@ class OpenRouterClient:
             result = response.json()
             generation_id = result["id"]
             generated_text = result["choices"][0]["message"]["content"]
+
+            # Log original response for debugging
+            if "&#" in generated_text:
+                self.logger.debug(f"HTML entities detected in response: {generated_text[:100]}...")
+
+            # Decode HTML entities if present
+            generated_text = html.unescape(generated_text)
+
+            # Log after unescape
+            if "&#" in generated_text:
+                self.logger.warning(f"HTML entities still present after unescape: {generated_text[:100]}...")
 
             self.total_requests += 1
             self.logger.debug(f"Generated response (ID: {generation_id})")
@@ -143,6 +166,8 @@ class OpenRouterClient:
         max_tokens: int = 100,
         system_prompt: Optional[str] = None,
         max_workers: int = 1,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
     ) -> List[Tuple[str, str]]:
         """
         Generate responses for multiple prompts with optional parallel processing.
@@ -154,6 +179,8 @@ class OpenRouterClient:
             max_tokens (int): Maximum tokens per generation
             system_prompt (Optional[str]): System prompt for all requests
             max_workers (int): Number of parallel workers (1 = sequential)
+            top_k (Optional[int]): Top-k sampling parameter
+            top_p (Optional[float]): Top-p (nucleus) sampling parameter
 
         Returns:
             List[Tuple[str, str]]: List of (generation_id, generated_text) tuples
@@ -161,12 +188,12 @@ class OpenRouterClient:
         if max_workers <= 1:
             # Sequential processing
             return self._generate_batch_sequential(
-                prompts, model, temperature, max_tokens, system_prompt
+                prompts, model, temperature, max_tokens, system_prompt, top_k, top_p
             )
         else:
             # Parallel processing
             return self._generate_batch_parallel(
-                prompts, model, temperature, max_tokens, system_prompt, max_workers
+                prompts, model, temperature, max_tokens, system_prompt, max_workers, top_k, top_p
             )
 
     def _generate_batch_sequential(
@@ -176,6 +203,8 @@ class OpenRouterClient:
         temperature: float,
         max_tokens: int,
         system_prompt: Optional[str],
+        top_k: Optional[int],
+        top_p: Optional[float],
     ) -> List[Tuple[str, str]]:
         """Sequential batch generation."""
         results = []
@@ -188,6 +217,8 @@ class OpenRouterClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     system_prompt=system_prompt,
+                    top_k=top_k,
+                    top_p=top_p,
                 )
                 results.append((gen_id, text))
 
@@ -209,6 +240,8 @@ class OpenRouterClient:
         max_tokens: int,
         system_prompt: Optional[str],
         max_workers: int,
+        top_k: Optional[int],
+        top_p: Optional[float],
     ) -> List[Tuple[str, str]]:
         """Parallel batch generation using ThreadPoolExecutor."""
         results = [None] * len(prompts)  # Pre-allocate results list
@@ -221,6 +254,8 @@ class OpenRouterClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     system_prompt=system_prompt,
+                    top_k=top_k,
+                    top_p=top_p,
                 )
                 return index, (gen_id, text)
             except Exception as e:

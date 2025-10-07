@@ -111,6 +111,12 @@ class DatasetBuilder:
         self.write_lock = threading.Lock()
         self.checkpoint_data = []
 
+        # Generation parameters (will be set in build_caa_dataset)
+        self.temperature = 0.3
+        self.top_k = None
+        self.top_p = None
+        self.max_tokens = 100
+
         # Initialize Jinja2 environment
         self.jinja_env = jinja2.Environment(
             loader=jinja2.PackageLoader('psyctl', 'templates'),
@@ -126,7 +132,8 @@ class DatasetBuilder:
             raise ValueError("OpenRouter API key is required when use_openrouter=True")
 
     def build_caa_dataset(
-        self, model: str, personality: str, output_dir: Path, limit_samples: int, dataset_name: str = "allenai/soda"
+        self, model: str, personality: str, output_dir: Path, limit_samples: int, dataset_name: str = "allenai/soda",
+        temperature: float = 0.3, top_k: int = None, top_p: float = None, max_tokens: int = 100
     ) -> Path:
         """
         Build CAA dataset for given personality traits.
@@ -140,6 +147,10 @@ class DatasetBuilder:
             output_dir (Path): Directory to save the generated dataset
             limit_samples (int): Maximum number of samples to generate (0 for unlimited)
             dataset_name (str): Hugging Face dataset identifier (default: "allenai/soda")
+            temperature (float): Sampling temperature for generation (default: 0.3)
+            top_k (int): Top-k sampling parameter (default: None)
+            top_p (float): Top-p (nucleus) sampling parameter (default: None)
+            max_tokens (int): Maximum tokens to generate per response (default: 100)
 
         Returns:
             Path: Path to the generated JSONL file
@@ -153,14 +164,22 @@ class DatasetBuilder:
             ...     model="meta-llama/Llama-3.2-3B-Instruct",
             ...     personality="Extroversion",
             ...     output_dir=Path("./dataset"),
-            ...     limit_samples=1000
+            ...     limit_samples=1000,
+            ...     temperature=0.5
             ... )
             >>> print(f"Generated dataset: {output_file}")
         """
+        # Store generation parameters
+        self.temperature = temperature
+        self.top_k = top_k
+        self.top_p = top_p
+        self.max_tokens = max_tokens
+
         self.logger.info(f"Building CAA dataset for model: {model}")
         self.logger.info(f"Personality traits: {personality}")
         self.logger.info(f"Output directory: {output_dir}")
         self.logger.info(f"Dataset: {dataset_name}")
+        self.logger.info(f"Generation params: temperature={temperature}, top_k={top_k}, top_p={top_p}, max_tokens={max_tokens}")
 
         try:
             # Create output directory
@@ -511,8 +530,10 @@ class DatasetBuilder:
                 _, output_text = self.openrouter_client.generate(
                     prompt=prompt,
                     model=self.openrouter_model,
-                    max_tokens=100,
-                    temperature=0.7,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    top_k=self.top_k,
+                    top_p=self.top_p,
                 )
                 return output_text
             except Exception as e:
@@ -545,14 +566,20 @@ class DatasetBuilder:
         tokenized["attention_mask"] = tokenized["attention_mask"].to(device)
 
         # 2. Generate response
-        outputs = self.model.generate(
-            input_ids=tokenized["input_ids"],
-            attention_mask=tokenized["attention_mask"],
-            max_new_tokens=100,
-            do_sample=True,
-            temperature=0.7,
-            pad_token_id=self.tokenizer.pad_token_id,
-        )
+        generate_kwargs = {
+            "input_ids": tokenized["input_ids"],
+            "attention_mask": tokenized["attention_mask"],
+            "max_new_tokens": self.max_tokens,
+            "do_sample": True,
+            "temperature": self.temperature,
+            "pad_token_id": self.tokenizer.pad_token_id,
+        }
+        if self.top_k is not None:
+            generate_kwargs["top_k"] = self.top_k
+        if self.top_p is not None:
+            generate_kwargs["top_p"] = self.top_p
+
+        outputs = self.model.generate(**generate_kwargs)
 
         # 3. Decode the generated text
         len_input = tokenized["input_ids"][0].shape[0]
@@ -608,8 +635,10 @@ class DatasetBuilder:
             results = self.openrouter_client.generate_batch(
                 prompts=prompts,
                 model=self.openrouter_model,
-                max_tokens=100,
-                temperature=0.7,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                top_k=self.top_k,
+                top_p=self.top_p,
                 max_workers=self.openrouter_max_workers,
             )
             return [text for _, text in results]
@@ -654,15 +683,21 @@ class DatasetBuilder:
 
                 # Generate responses
                 with torch.no_grad():
-                    outputs = self.model.generate(
-                        input_ids=tokenized["input_ids"],
-                        attention_mask=tokenized["attention_mask"],
-                        max_new_tokens=100,
-                        do_sample=True,
-                        temperature=0.7,
-                        pad_token_id=self.tokenizer.pad_token_id,
-                        num_return_sequences=1,
-                    )
+                    generate_kwargs = {
+                        "input_ids": tokenized["input_ids"],
+                        "attention_mask": tokenized["attention_mask"],
+                        "max_new_tokens": self.max_tokens,
+                        "do_sample": True,
+                        "temperature": self.temperature,
+                        "pad_token_id": self.tokenizer.pad_token_id,
+                        "num_return_sequences": 1,
+                    }
+                    if self.top_k is not None:
+                        generate_kwargs["top_k"] = self.top_k
+                    if self.top_p is not None:
+                        generate_kwargs["top_p"] = self.top_p
+
+                    outputs = self.model.generate(**generate_kwargs)
 
                 # Decode responses
                 batch_responses = []
