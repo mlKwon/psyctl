@@ -130,19 +130,17 @@ Steering vectors are saved in safetensors format with embedded metadata:
 ```python
 # File structure
 {
-    "layer_0": torch.Tensor,  # First layer's steering vector
-    "layer_1": torch.Tensor,  # Second layer's steering vector
+    "model.layers[13].mlp.down_proj": torch.Tensor,  # First layer's steering vector
+    "model.layers[14].mlp.down_proj": torch.Tensor,  # Second layer's steering vector
     # ... more layers
     "__metadata__": {
         "model": "meta-llama/Llama-3.2-3B-Instruct",
-        "method": "MeanContrastiveActivationVector",
+        "method": "mean_contrastive",
         "layers": ["model.layers[13].mlp.down_proj", "model.layers[14].mlp.down_proj"],
-        "personality": "Extroversion",  # From dataset
         "dataset_path": "./dataset/caa",
         "dataset_samples": 20000,
-        "normalized": false,
-        "created_at": "2025-01-15T10:30:00",
-        "psyctl_version": "0.1.0"
+        "num_layers": 2,
+        "normalized": false
     }
 }
 ```
@@ -153,7 +151,7 @@ Steering vectors are saved in safetensors format with embedded metadata:
 from safetensors.torch import load_file
 
 data = load_file("steering_vector.safetensors")
-layer_13_vector = data["layer_0"]
+layer_13_vector = data["model.layers[13].mlp.down_proj"]
 metadata = data["__metadata__"]
 ```
 
@@ -400,5 +398,5 @@ If activations seem incorrect, verify token position detection for your model ar
 
 - [CAA Paper: Contrastive Activation Addition](https://arxiv.org/abs/2312.06681)
 - [Representation Engineering](https://arxiv.org/abs/2310.01405)
-- [PSYCTL Dataset Building](./DATASET.BUILD.md)
+- [PSYCTL Dataset Building](./DATASET.BUILD.CAA.md)
 - [PSYCTL Steering Application](./STEERING.md)

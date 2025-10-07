@@ -123,10 +123,8 @@ psyctl dataset.build.caa \
 
 ```
 output_directory/
-├── caa_dataset.jsonl          # Main dataset file
-├── checkpoint_500.jsonl       # Checkpoint files (every 100 samples)
-├── checkpoint_1000.jsonl
-└── metadata.json              # Dataset metadata
+├── caa_dataset_20250107_143022.jsonl            # Main dataset file (timestamped)
+└── caa_dataset_20250107_143022.checkpoint.json  # Checkpoint file
 ```
 
 ### JSONL Format
@@ -146,18 +144,15 @@ Each line in the dataset file contains:
 - `positive`: Answer option exhibiting the target personality
 - `neutral`: Answer option with neutral personality expression
 
-### Metadata
+### Checkpoint Format
 
-The metadata file contains:
+The checkpoint file contains:
 
 ```json
 {
-  "model": "google/gemma-2-2b-it",
-  "personality": "Extroversion",
-  "source_dataset": "allenai/soda",
-  "total_samples": 10000,
-  "created_at": "2025-01-15T10:30:00",
-  "psyctl_version": "0.1.0"
+  "num_generated": 500,
+  "output_file": "c:/work/psyctl/dataset/caa_dataset_20250107_143022.jsonl",
+  "timestamp": "2025-01-07T14:35:22.123456"
 }
 ```
 
@@ -184,10 +179,10 @@ export PSYCTL_INFERENCE_BATCH_SIZE="32"
 
 ### Performance Features
 
-**Async I/O:**
-- Non-blocking file writes
-- Improved throughput during dataset generation
-- Automatic buffering
+**Batch Processing:**
+- Batch inference for improved GPU utilization
+- Parallel generation of positive and neutral responses
+- Configurable batch size via environment variable
 
 **Memory Management:**
 - Dynamic batching based on GPU memory
@@ -210,7 +205,6 @@ export PSYCTL_INFERENCE_BATCH_SIZE="32"
 # Optimal configuration for performance
 $env:PSYCTL_INFERENCE_BATCH_SIZE = "32"
 $env:PSYCTL_CHECKPOINT_INTERVAL = "100"
-$env:PSYCTL_MAX_WORKERS = "4"
 ```
 
 ## Checkpoint and Resume
@@ -220,9 +214,9 @@ $env:PSYCTL_MAX_WORKERS = "4"
 The dataset builder automatically saves checkpoints during generation:
 
 **Default behavior:**
-- Checkpoint saved every 100 samples
-- Checkpoint files: `checkpoint_N.jsonl`
-- Final output: `caa_dataset.jsonl`
+- Checkpoint saved every 100 samples (configurable)
+- Checkpoint file: `caa_dataset_{timestamp}.checkpoint.json`
+- Output file: `caa_dataset_{timestamp}.jsonl`
 
 **Configure checkpoint interval:**
 ```powershell
@@ -257,18 +251,18 @@ psyctl dataset.build.caa \
 ### Manual Checkpoint Management
 
 **Check checkpoint status:**
-```bash
-# List checkpoint files
-ls ./dataset/extroversion/checkpoint_*.jsonl
+```powershell
+# Windows
+dir ./dataset/extroversion/*.checkpoint.json
 
-# View sample count
-wc -l ./dataset/extroversion/checkpoint_*.jsonl
+# Linux/macOS
+ls ./dataset/extroversion/*.checkpoint.json
 ```
 
-**Merge checkpoints manually (if needed):**
-```bash
-# Combine all checkpoints
-cat ./dataset/extroversion/checkpoint_*.jsonl > ./dataset/extroversion/caa_dataset.jsonl
+**View checkpoint contents:**
+```powershell
+# Check number of samples generated
+type ./dataset/extroversion/caa_dataset_*.checkpoint.json
 ```
 
 ## Adding Custom Datasets
@@ -400,8 +394,13 @@ Error: Failed to load checkpoint
 ```
 
 **Solution:** Remove corrupted checkpoint and restart:
-```bash
-rm ./dataset/extroversion/checkpoint_*.jsonl
+```powershell
+# Windows
+del ./dataset/extroversion/*.checkpoint.json
+psyctl dataset.build.caa --model ... --personality ... --output ...
+
+# Linux/macOS
+rm ./dataset/extroversion/*.checkpoint.json
 psyctl dataset.build.caa --model ... --personality ... --output ...
 ```
 
@@ -416,7 +415,7 @@ psyctl dataset.build.caa --model ... --personality ... --output ...
 ```powershell
 # Performance tuning
 $env:PSYCTL_INFERENCE_BATCH_SIZE = "32"
-$env:PSYCTL_MAX_WORKERS = "8"
+$env:PSYCTL_CHECKPOINT_INTERVAL = "100"
 ```
 
 ## Best Practices
