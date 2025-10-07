@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="./docs/images/logo.png" alt="PSYCTL Logo" width="120"/>
+</p>
+
 # PSYCTL - LLM Personality Steering Tool
 
-> **⚠️ Project Under Development**  
+> **⚠️ Project Under Development**
 > This project is currently under development and only supports limited functionality. Please check the release notes for stable features.
 
 A project by [Persona Lab](https://modulabs.co.kr/labs/337) at ModuLabs.
