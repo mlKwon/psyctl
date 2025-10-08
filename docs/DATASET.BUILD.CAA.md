@@ -448,14 +448,39 @@ Upload a previously generated CAA dataset:
 psyctl dataset.upload \
   --dataset-file "./results/caa_dataset_20250107_143022.jsonl" \
   --repo-id "username/extroversion-caa" \
-  --private
+  --private \
+  --license "mit"
 ```
 
 **Options:**
 - `--dataset-file`: Path to JSONL dataset file (required)
 - `--repo-id`: HuggingFace repository ID `username/repo-name` (required)
 - `--private`: Make repository private (default: public)
+- `--license`: License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0') (optional)
 - `--commit-message`: Custom commit message (optional)
+
+**Additional Examples:**
+
+```bash
+# Upload without license
+psyctl dataset.upload \
+  --dataset-file "./results/caa_dataset_20250107_143022.jsonl" \
+  --repo-id "username/extroversion-caa"
+
+# Upload with custom commit message
+psyctl dataset.upload \
+  --dataset-file "./results/caa_dataset_20250107_143022.jsonl" \
+  --repo-id "username/extroversion-caa" \
+  --license "apache-2.0" \
+  --commit-message "Add 1000 Extroversion samples (gemma-3-27b-it)"
+
+# Upload as private repository
+psyctl dataset.upload \
+  --dataset-file "./results/caa_dataset_20250107_143022.jsonl" \
+  --repo-id "username/extroversion-caa-internal" \
+  --private \
+  --license "cc-by-nc-4.0"
+```
 
 **Example Output:**
 ```
@@ -478,11 +503,12 @@ from pathlib import Path
 # Initialize builder
 builder = DatasetBuilder()
 
-# Upload existing dataset
+# Upload existing dataset with license
 repo_url = builder.upload_to_hub(
     jsonl_file=Path("./results/caa_dataset_20250107_143022.jsonl"),
     repo_id="username/extroversion-caa",
-    private=False
+    private=False,
+    license="mit"  # Optional: specify license
 )
 
 print(f"Uploaded to: {repo_url}")
@@ -506,15 +532,17 @@ output_file = builder.build_caa_dataset(
     model="google/gemma-3-27b-it",
     personality="Extroversion",
     output_dir=Path("./dataset/ext"),
-    limit_samples=1000
+    limit_samples=1000,
+    dataset_name="allenai/soda"  # Source dataset
 )
 print(f"Generated: {output_file}")
 
-# Upload to Hub
+# Upload to Hub with license
 repo_url = builder.upload_to_hub(
     jsonl_file=output_file,
     repo_id="username/extroversion-caa",
     private=False,
+    license="cc-by-4.0",  # Optional: Creative Commons Attribution
     token=token
 )
 print(f"Uploaded: {repo_url}")
@@ -568,7 +596,8 @@ When you upload a dataset with PSYCTL, a comprehensive dataset card is automatic
 - Generation model
 - Sample count
 - Generation timestamp
-- Source dataset
+- Source dataset (automatically captured from build_caa_dataset)
+- License (if specified)
 
 #### Usage Instructions
 - Installation guide
@@ -627,6 +656,50 @@ Use descriptive messages:
 ```bash
 --commit-message "Add 1000 samples for Extroversion (gemma-3-27b-it)"
 ```
+
+#### 4. License Specification
+Choose appropriate license for your dataset:
+```bash
+# Creative Commons Attribution 4.0
+--license "cc-by-4.0"
+
+# MIT License
+--license "mit"
+
+# Apache 2.0
+--license "apache-2.0"
+
+# No license (omit the option)
+# Dataset will be uploaded without license field
+```
+
+**Note:** The source dataset used during `build_caa_dataset` (via `--dataset` or `dataset_name` parameter) is automatically captured and included in the dataset card's metadata.
+
+#### 5. Source Dataset Tracking
+When you build a dataset and then upload it, the source dataset information is **automatically tracked**:
+
+```python
+# Step 1: Build dataset with custom source
+builder = DatasetBuilder()
+output_file = builder.build_caa_dataset(
+    model="google/gemma-3-27b-it",
+    personality="Extroversion",
+    output_dir=Path("./dataset/ext"),
+    limit_samples=1000,
+    dataset_name="CaveduckAI/simplified_soda_kr"  # This is captured!
+)
+
+# Step 2: Upload - source dataset info is automatically included
+repo_url = builder.upload_to_hub(
+    jsonl_file=output_file,
+    repo_id="username/extroversion-caa"
+)
+# Dataset card will show: Source Dataset: CaveduckAI/simplified_soda_kr
+```
+
+The `DatasetBuilder` instance remembers which source dataset was used during `build_caa_dataset()` and automatically includes it in the dataset card when you call `upload_to_hub()`.
+
+**Important:** Use the same `DatasetBuilder` instance for both building and uploading to ensure source dataset is tracked correctly.
 
 ---
 

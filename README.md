@@ -291,6 +291,20 @@ $env:PSYCTL_CHECKPOINT_INTERVAL = "100"  # Adjust based on stability needs
 
 ### 📝 Examples
 
+#### Example Scripts
+
+The [examples/](examples/) directory contains ready-to-run Python scripts demonstrating complete PSYCTL workflows, including dataset generation, vector extraction, and steering application.
+
+**Running Examples:**
+```bash
+# Set up environment variables
+echo "HF_TOKEN=your_token_here" > .env
+echo "OPENROUTER_API_KEY=your_key_here" >> .env
+
+# Run an example
+uv run python examples/end_to_end_simple.py
+```
+
 #### Complete Workflow Example
 
 ```bash

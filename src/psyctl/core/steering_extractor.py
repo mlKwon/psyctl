@@ -1,7 +1,7 @@
 """Steering vector extractor using various methods."""
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import torch
 
@@ -31,7 +31,7 @@ class SteeringExtractor:
         self,
         model_name: str,
         layers: List[str],
-        dataset_path: Path,
+        dataset_path: Union[Path, str],
         output_path: Path,
         batch_size: Optional[int] = None,
         normalize: bool = False,
@@ -44,7 +44,7 @@ class SteeringExtractor:
         Args:
             model_name: Hugging Face model identifier
             layers: List of layer paths to extract from
-            dataset_path: Path to CAA dataset
+            dataset_path: Path to CAA dataset or HuggingFace dataset name
             output_path: Output file path for safetensors
             batch_size: Batch size for inference (optional)
             normalize: Whether to normalize vectors to unit length
@@ -69,9 +69,20 @@ class SteeringExtractor:
         self.logger.info(f"Method: {method}")
 
         try:
-            # Validate inputs
-            if not dataset_path.exists():
-                raise FileNotFoundError(f"Dataset path does not exist: {dataset_path}")
+            # Convert dataset_path to Path if it's a string (could be HF dataset name)
+            if isinstance(dataset_path, str):
+                # Check if it's a HuggingFace dataset name (contains '/')
+                if '/' in dataset_path:
+                    self.logger.info(f"Using HuggingFace dataset: {dataset_path}")
+                else:
+                    # It's a local path string, convert to Path
+                    dataset_path = Path(dataset_path)
+                    if not dataset_path.exists():
+                        raise FileNotFoundError(f"Dataset path does not exist: {dataset_path}")
+            elif isinstance(dataset_path, Path):
+                # Validate local path
+                if not dataset_path.exists():
+                    raise FileNotFoundError(f"Dataset path does not exist: {dataset_path}")
 
             # Create output directory
             output_path.parent.mkdir(parents=True, exist_ok=True)

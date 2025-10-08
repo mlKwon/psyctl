@@ -2,8 +2,9 @@
 
 import json
 from pathlib import Path
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Tuple, Union
 
+from datasets import load_dataset
 from transformers import AutoTokenizer
 
 from psyctl.core.logger import get_logger
@@ -25,12 +26,12 @@ class CAADatasetLoader:
         """Initialize CAADatasetLoader with logger."""
         self.logger = get_logger("caa_dataset_loader")
 
-    def load(self, dataset_path: Path) -> List[dict]:
+    def load(self, dataset_path: Union[Path, str]) -> List[dict]:
         """
-        Load CAA dataset from JSONL file.
+        Load CAA dataset from JSONL file or HuggingFace dataset.
 
         Args:
-            dataset_path: Path to dataset directory or JSONL file
+            dataset_path: Path to dataset directory/JSONL file or HuggingFace dataset name
 
         Returns:
             List of dataset entries
@@ -42,7 +43,31 @@ class CAADatasetLoader:
         Example:
             >>> loader = CAADatasetLoader()
             >>> dataset = loader.load(Path("./dataset/caa"))
+            >>> dataset = loader.load("CaveduckAI/steer-personality-rudeness-ko")
         """
+        # Check if it's a HuggingFace dataset name
+        if isinstance(dataset_path, str) and '/' in dataset_path:
+            self.logger.info(f"Loading HuggingFace dataset: {dataset_path}")
+            try:
+                hf_dataset = load_dataset(dataset_path, split='train')
+                dataset = []
+                for item in hf_dataset:
+                    # Convert HF dataset format to CAA format
+                    entry = {
+                        'question': item.get('question', ''),
+                        'positive': item.get('positive', ''),
+                        'neutral': item.get('neutral', '')
+                    }
+                    dataset.append(entry)
+                self.logger.info(f"Loaded {len(dataset)} entries from HuggingFace dataset")
+                return dataset
+            except Exception as e:
+                raise ValueError(f"Failed to load HuggingFace dataset: {e}")
+
+        # Convert string to Path for local files
+        if isinstance(dataset_path, str):
+            dataset_path = Path(dataset_path)
+
         # If path is directory, find JSONL file
         if dataset_path.is_dir():
             jsonl_files = list(dataset_path.glob("*.jsonl"))
