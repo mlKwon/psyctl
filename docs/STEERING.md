@@ -79,6 +79,7 @@ psyctl steering \
 
 You can use the `SteeringApplier` class directly in Python code with flexible input options.
 
+
 #### Basic Example (Using model_name)
 
 ```python
@@ -97,6 +98,39 @@ result = applier.apply_steering(
 )
 
 print(result)
+```
+
+#### Using Persistent Steering (NEW - Most Efficient for Multiple Generations)
+
+The `get_steering_applied_model()` method returns a model with steering hooks already attached. This is the most efficient way to generate multiple outputs with the same steering configuration:
+
+```python
+from pathlib import Path
+from psyctl.core.steering_applier import SteeringApplier
+
+# Initialize applier
+applier = SteeringApplier()
+
+# Get model with steering hooks attached
+model, tokenizer = applier.get_steering_applied_model(
+    model_name="google/gemma-3-270m-it",
+    steering_vector_path=Path("./steering_vector/out.safetensors"),
+    strength=2.0,
+    orthogonal=True
+)
+
+# Use the model multiple times - hooks remain active
+test_inputs = ["Hello", "How are you?", "What's your opinion?"]
+
+for prompt in test_inputs:
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    outputs = model.generate(**inputs, max_new_tokens=50, use_cache=False)
+    result = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    print(f"Input: {prompt}")
+    print(f"Output: {result}\n")
+
+# Remove steering hooks when done
+model.remove_steering()
 ```
 
 #### Using Pre-loaded Model (Efficient for Multiple Generations)
@@ -180,18 +214,91 @@ result = applier.apply_steering(
 print(result)
 ```
 
+#### Using Verbose Logging (NEW)
+
+Enable verbose logging to see the full prompt after chat template application:
+
+```python
+from pathlib import Path
+from psyctl.core.steering_applier import SteeringApplier
+
+applier = SteeringApplier()
+
+# Enable verbose to log the full formatted prompt
+result = applier.apply_steering(
+    model_name="google/gemma-3-270m-it",
+    steering_vector_path=Path("./steering_vector/out.safetensors"),
+    input_text="Hello",
+    strength=1.5,
+    verbose=True  # Logs full prompt with chat template
+)
+```
+
+#### Using Per-Layer Strength (NEW)
+
+Control steering strength individually for each layer:
+
+```python
+from pathlib import Path
+from psyctl.core.steering_applier import SteeringApplier
+
+applier = SteeringApplier()
+
+# Apply different strengths to different layers
+result = applier.apply_steering(
+    model_name="google/gemma-3-270m-it",
+    steering_vector_path=Path("./steering_vector/multi_layer.safetensors"),
+    input_text="Tell me about yourself",
+    strength={
+        "model.layers[10].mlp.down_proj": 1.0,
+        "model.layers[13].mlp.down_proj": 2.5,
+        "model.layers[16].mlp.down_proj": 1.5,
+        # Layers not specified will use default strength of 1.0
+    }
+)
+
+print(result)
+```
+
+You can also use per-layer strength with `get_steering_applied_model()`:
+
+```python
+# Get model with per-layer steering
+model, tokenizer = applier.get_steering_applied_model(
+    model_name="google/gemma-3-270m-it",
+    steering_vector_path=Path("./steering_vector/multi_layer.safetensors"),
+    strength={
+        "model.layers[13].mlp.down_proj": 3.0,  # Strong on this layer
+        # Other layers use default 1.0
+    },
+    orthogonal=True
+)
+
+# Generate multiple outputs with this configuration
+for prompt in ["Hello", "How are you?"]:
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    outputs = model.generate(**inputs, max_new_tokens=50, use_cache=False)
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+
+model.remove_steering()
+```
+
 ## Steering Parameters
 
 ### Strength
 
-The `--strength` parameter controls how strongly the steering vector affects the model:
+The `strength` parameter controls how strongly the steering vector affects the model.
+
+**Uniform Strength (float):**
+
+Apply the same strength to all layers:
 
 - `0.0`: No steering (baseline model behavior)
 - `1.0`: Default steering strength
 - `1.5-2.0`: Strong steering (recommended for subtle personalities)
 - `>2.0`: Very strong steering (may produce extreme outputs)
 
-**Example:**
+**CLI Example:**
 ```bash
 # Subtle steering
 psyctl steering --model "google/gemma-3-270m-it" \
@@ -205,6 +312,33 @@ psyctl steering --model "google/gemma-3-270m-it" \
   --input-text "What is your opinion?" \
   --strength 2.5
 ```
+
+**Per-Layer Strength (Dict[str, float]) - Python API Only:**
+
+Control strength for each layer individually:
+
+```python
+# Dictionary mapping layer names to strength values
+strength = {
+    "model.layers[10].mlp.down_proj": 1.0,   # Mild steering
+    "model.layers[13].mlp.down_proj": 2.5,   # Strong steering
+    "model.layers[16].mlp.down_proj": 1.5,   # Moderate steering
+    # Layers not in dict will use default strength of 1.0
+}
+
+result = applier.apply_steering(
+    model_name="google/gemma-3-270m-it",
+    steering_vector_path=Path("./vector.safetensors"),
+    input_text="What is your opinion?",
+    strength=strength
+)
+```
+
+**Benefits of per-layer strength:**
+- Fine-grained control over steering behavior
+- Can emphasize or de-emphasize specific layers
+- Useful for experimenting with layer-specific effects
+- Layers not specified in the dict automatically use default strength (1.0)
 
 ### Temperature
 

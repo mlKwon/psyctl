@@ -1,7 +1,7 @@
 """Steering vector applier for text generation."""
 
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -29,7 +29,7 @@ class SteeringApplier:
         model_name: Optional[str] = None,
         model: Optional[nn.Module] = None,
         tokenizer: Optional[AutoTokenizer] = None,
-        strength: float = 1.0,
+        strength: Union[float, Dict[str, float]] = 1.0,
         max_new_tokens: int = 200,
         temperature: float = 1.0,
         top_p: float = 0.9,
@@ -46,7 +46,9 @@ class SteeringApplier:
             model_name: Hugging Face model identifier (optional if model provided)
             model: Pre-loaded model (optional if model_name provided)
             tokenizer: Pre-loaded tokenizer (optional if model_name provided)
-            strength: Steering strength multiplier (default: 1.0)
+            strength: Steering strength multiplier. Can be:
+                - float: Apply same strength to all layers (default: 1.0)
+                - Dict[str, float]: Per-layer strength mapping. Missing layers default to 1.0
             max_new_tokens: Maximum number of tokens to generate
             temperature: Sampling temperature (0.0 for greedy)
             top_p: Top-p sampling parameter
@@ -146,12 +148,16 @@ class SteeringApplier:
                     layer_module = self._get_layer_module(
                         model, layer_name, metadata
                     )
+                    # Resolve strength for this layer
+                    layer_strength = self._resolve_layer_strength(strength, layer_name)
                     hook = self._make_steering_hook(
-                        prompt_length, steer_vec, strength, orthogonal
+                        prompt_length, steer_vec, layer_strength, orthogonal
                     )
                     handle = layer_module.register_forward_hook(hook)
                     hooks.append(handle)
-                    self.logger.debug(f"Registered hook on: {layer_name}")
+                    self.logger.debug(
+                        f"Registered hook on {layer_name} with strength={layer_strength}"
+                    )
 
                 # 5. Generate with steering
                 self.logger.info("Generating text with steering...")
@@ -296,13 +302,34 @@ class SteeringApplier:
 
         return hook
 
+    def _resolve_layer_strength(
+        self,
+        strength: Union[float, Dict[str, float]],
+        layer_name: str,
+        default: float = 1.0,
+    ) -> float:
+        """
+        Resolve strength value for a specific layer.
+
+        Args:
+            strength: Global strength or per-layer strength dict
+            layer_name: Name of the layer
+            default: Default strength if not found in dict
+
+        Returns:
+            Strength value for the layer
+        """
+        if isinstance(strength, dict):
+            return strength.get(layer_name, default)
+        return strength
+
     def get_steering_applied_model(
         self,
         steering_vector_path: Path,
         model_name: Optional[str] = None,
         model: Optional[nn.Module] = None,
         tokenizer: Optional[AutoTokenizer] = None,
-        strength: float = 1.0,
+        strength: Union[float, Dict[str, float]] = 1.0,
         prompt_length: int = 0,
         orthogonal: bool = False,
     ) -> Tuple[nn.Module, AutoTokenizer]:
@@ -318,7 +345,9 @@ class SteeringApplier:
             model_name: HuggingFace model identifier (optional if model provided)
             model: Pre-loaded model (optional if model_name provided)
             tokenizer: Pre-loaded tokenizer (optional if model_name provided)
-            strength: Steering strength multiplier (default: 1.0)
+            strength: Steering strength multiplier. Can be:
+                - float: Apply same strength to all layers (default: 1.0)
+                - Dict[str, float]: Per-layer strength mapping. Missing layers default to 1.0
             prompt_length: Length of prompt in tokens (0 = apply to all tokens)
             orthogonal: Use orthogonalized addition method
 
@@ -394,12 +423,16 @@ class SteeringApplier:
             hooks = []
             for layer_name, steer_vec in vectors.items():
                 layer_module = self._get_layer_module(model, layer_name, metadata)
+                # Resolve strength for this layer
+                layer_strength = self._resolve_layer_strength(strength, layer_name)
                 hook = self._make_steering_hook(
-                    prompt_length, steer_vec, strength, orthogonal
+                    prompt_length, steer_vec, layer_strength, orthogonal
                 )
                 handle = layer_module.register_forward_hook(hook)
                 hooks.append(handle)
-                self.logger.debug(f"Registered hook on: {layer_name}")
+                self.logger.debug(
+                    f"Registered hook on {layer_name} with strength={layer_strength}"
+                )
 
             # 4. Store handles in model and add cleanup method
             model._steering_handles = hooks

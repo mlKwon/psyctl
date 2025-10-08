@@ -323,3 +323,211 @@ class TestApplySteeringVerbose:
                 assert not any(
                     "Full prompt after chat template" in str(call) for call in info_calls
                 )
+
+
+class TestPerLayerStrength:
+    """Test suite for per-layer strength functionality."""
+
+    @patch("psyctl.core.steering_applier.VectorStore")
+    @patch("psyctl.core.steering_applier.LLMLoader")
+    @patch("psyctl.core.steering_applier.LayerAccessor")
+    def test_strength_as_float(
+        self,
+        mock_accessor_class,
+        mock_loader_class,
+        mock_store_class,
+        steering_applier,
+        mock_model,
+        mock_tokenizer,
+        mock_layer,
+        tmp_path,
+    ):
+        """Test that float strength applies to all layers."""
+        # Setup mocks
+        vector_file = tmp_path / "test.safetensors"
+        vector_file.touch()
+
+        mock_loader = steering_applier.llm_loader
+        mock_loader.load_model.return_value = (mock_model, mock_tokenizer)
+
+        mock_store = steering_applier.vector_store
+        mock_store.load_multi_layer.return_value = (
+            {
+                "layer_1": torch.randn(128),
+                "layer_2": torch.randn(128),
+            },
+            {"model_name": "test"},
+        )
+
+        mock_accessor = steering_applier.layer_accessor
+        mock_accessor.get_layer.return_value = mock_layer
+
+        mock_tokenizer.return_value = {"input_ids": torch.tensor([[1, 2, 3]])}
+        mock_tokenizer.decode.return_value = "Test output"
+        mock_model.generate.return_value = torch.tensor([[1, 2, 3, 4, 5]])
+
+        # Patch _make_steering_hook to track calls
+        with patch.object(
+            steering_applier, "_make_steering_hook", wraps=steering_applier._make_steering_hook
+        ) as mock_hook:
+            # Execute with float strength
+            steering_applier.apply_steering(
+                steering_vector_path=vector_file,
+                model_name="test-model",
+                input_text="Test input",
+                strength=2.5,
+            )
+
+            # Verify all hooks received the same strength
+            assert mock_hook.call_count == 2
+            for call in mock_hook.call_args_list:
+                assert call[0][2] == 2.5  # strength is 3rd positional arg
+
+    @patch("psyctl.core.steering_applier.VectorStore")
+    @patch("psyctl.core.steering_applier.LLMLoader")
+    @patch("psyctl.core.steering_applier.LayerAccessor")
+    def test_strength_as_dict(
+        self,
+        mock_accessor_class,
+        mock_loader_class,
+        mock_store_class,
+        steering_applier,
+        mock_model,
+        mock_tokenizer,
+        mock_layer,
+        tmp_path,
+    ):
+        """Test that dict strength applies per-layer values."""
+        # Setup mocks
+        vector_file = tmp_path / "test.safetensors"
+        vector_file.touch()
+
+        mock_loader = steering_applier.llm_loader
+        mock_loader.load_model.return_value = (mock_model, mock_tokenizer)
+
+        mock_store = steering_applier.vector_store
+        mock_store.load_multi_layer.return_value = (
+            {
+                "layer_1": torch.randn(128),
+                "layer_2": torch.randn(128),
+                "layer_3": torch.randn(128),
+            },
+            {"model_name": "test"},
+        )
+
+        mock_accessor = steering_applier.layer_accessor
+        mock_accessor.get_layer.return_value = mock_layer
+
+        mock_tokenizer.return_value = {"input_ids": torch.tensor([[1, 2, 3]])}
+        mock_tokenizer.decode.return_value = "Test output"
+        mock_model.generate.return_value = torch.tensor([[1, 2, 3, 4, 5]])
+
+        # Patch _make_steering_hook to track calls
+        with patch.object(
+            steering_applier, "_make_steering_hook", wraps=steering_applier._make_steering_hook
+        ) as mock_hook:
+            # Execute with dict strength
+            strength_dict = {
+                "layer_1": 1.0,
+                "layer_2": 2.5,
+                "layer_3": 3.0,
+            }
+            steering_applier.apply_steering(
+                steering_vector_path=vector_file,
+                model_name="test-model",
+                input_text="Test input",
+                strength=strength_dict,
+            )
+
+            # Verify hooks received correct per-layer strengths
+            assert mock_hook.call_count == 3
+            strengths_used = [call[0][2] for call in mock_hook.call_args_list]
+            assert 1.0 in strengths_used
+            assert 2.5 in strengths_used
+            assert 3.0 in strengths_used
+
+    @patch("psyctl.core.steering_applier.VectorStore")
+    @patch("psyctl.core.steering_applier.LLMLoader")
+    @patch("psyctl.core.steering_applier.LayerAccessor")
+    def test_strength_dict_with_missing_layers(
+        self,
+        mock_accessor_class,
+        mock_loader_class,
+        mock_store_class,
+        steering_applier,
+        mock_model,
+        mock_tokenizer,
+        mock_layer,
+        tmp_path,
+    ):
+        """Test that missing layers in dict use default strength."""
+        # Setup mocks
+        vector_file = tmp_path / "test.safetensors"
+        vector_file.touch()
+
+        mock_loader = steering_applier.llm_loader
+        mock_loader.load_model.return_value = (mock_model, mock_tokenizer)
+
+        mock_store = steering_applier.vector_store
+        mock_store.load_multi_layer.return_value = (
+            {
+                "layer_1": torch.randn(128),
+                "layer_2": torch.randn(128),
+                "layer_3": torch.randn(128),
+            },
+            {"model_name": "test"},
+        )
+
+        mock_accessor = steering_applier.layer_accessor
+        mock_accessor.get_layer.return_value = mock_layer
+
+        mock_tokenizer.return_value = {"input_ids": torch.tensor([[1, 2, 3]])}
+        mock_tokenizer.decode.return_value = "Test output"
+        mock_model.generate.return_value = torch.tensor([[1, 2, 3, 4, 5]])
+
+        # Patch _make_steering_hook to track calls
+        with patch.object(
+            steering_applier, "_make_steering_hook", wraps=steering_applier._make_steering_hook
+        ) as mock_hook:
+            # Execute with partial dict strength
+            strength_dict = {
+                "layer_1": 2.0,
+                # layer_2 and layer_3 missing - should use default 1.0
+            }
+            steering_applier.apply_steering(
+                steering_vector_path=vector_file,
+                model_name="test-model",
+                input_text="Test input",
+                strength=strength_dict,
+            )
+
+            # Verify hooks received correct strengths
+            assert mock_hook.call_count == 3
+            strengths_used = [call[0][2] for call in mock_hook.call_args_list]
+            assert strengths_used.count(1.0) == 2  # layer_2 and layer_3
+            assert strengths_used.count(2.0) == 1  # layer_1
+
+    def test_resolve_layer_strength_with_float(self, steering_applier):
+        """Test _resolve_layer_strength with float input."""
+        result = steering_applier._resolve_layer_strength(2.5, "any_layer")
+        assert result == 2.5
+
+    def test_resolve_layer_strength_with_dict_present(self, steering_applier):
+        """Test _resolve_layer_strength with dict when layer is present."""
+        strength_dict = {"layer_1": 3.0, "layer_2": 1.5}
+        result = steering_applier._resolve_layer_strength(strength_dict, "layer_1")
+        assert result == 3.0
+
+    def test_resolve_layer_strength_with_dict_missing(self, steering_applier):
+        """Test _resolve_layer_strength with dict when layer is missing."""
+        strength_dict = {"layer_1": 3.0}
+        result = steering_applier._resolve_layer_strength(strength_dict, "layer_2")
+        assert result == 1.0  # default
+
+    def test_resolve_layer_strength_with_dict_custom_default(self, steering_applier):
+        """Test _resolve_layer_strength with custom default."""
+        strength_dict = {"layer_1": 3.0}
+        result = steering_applier._resolve_layer_strength(
+            strength_dict, "layer_2", default=5.0
+        )
+        assert result == 5.0
