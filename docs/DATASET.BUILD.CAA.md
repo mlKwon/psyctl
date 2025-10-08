@@ -417,6 +417,219 @@ ls ./dataset/extroversion/*.checkpoint.json
 type ./dataset/extroversion/caa_dataset_*.checkpoint.json
 ```
 
+## Uploading to HuggingFace Hub
+
+PSYCTL supports uploading CAA datasets to HuggingFace Hub with automatic branding and dataset card generation.
+
+### Prerequisites
+
+1. **HuggingFace Account**: [Sign up](https://huggingface.co/join)
+2. **Access Token**: [Generate token](https://huggingface.co/settings/tokens) with `write` permission
+3. **Set Environment Variable**:
+
+```powershell
+# Windows PowerShell
+$env:HF_TOKEN = "hf_xxxxxxxxxxxx"
+
+# Linux/macOS
+export HF_TOKEN="hf_xxxxxxxxxxxx"
+
+# Or use CLI login
+huggingface-cli login
+```
+
+---
+
+### Method 1: Upload Existing Dataset (CLI)
+
+Upload a previously generated CAA dataset:
+
+```bash
+psyctl dataset.upload \
+  --dataset-file "./results/caa_dataset_20250107_143022.jsonl" \
+  --repo-id "username/extroversion-caa" \
+  --private
+```
+
+**Options:**
+- `--dataset-file`: Path to JSONL dataset file (required)
+- `--repo-id`: HuggingFace repository ID `username/repo-name` (required)
+- `--private`: Make repository private (default: public)
+- `--commit-message`: Custom commit message (optional)
+
+**Example Output:**
+```
+✓ Successfully uploaded to: https://huggingface.co/datasets/username/extroversion-caa
+
+View your dataset at:
+https://huggingface.co/datasets/username/extroversion-caa
+```
+
+---
+
+### Method 2: Upload with Python API
+
+#### Basic Upload
+
+```python
+from psyctl.core.dataset_builder import DatasetBuilder
+from pathlib import Path
+
+# Initialize builder
+builder = DatasetBuilder()
+
+# Upload existing dataset
+repo_url = builder.upload_to_hub(
+    jsonl_file=Path("./results/caa_dataset_20250107_143022.jsonl"),
+    repo_id="username/extroversion-caa",
+    private=False
+)
+
+print(f"Uploaded to: {repo_url}")
+# Output: https://huggingface.co/datasets/username/extroversion-caa
+```
+
+#### Build and Upload
+
+```python
+from psyctl.core.dataset_builder import DatasetBuilder
+from psyctl.core.utils import validate_hf_token
+from pathlib import Path
+
+# Validate token first
+token = validate_hf_token()
+print("Authentication: OK")
+
+# Build dataset
+builder = DatasetBuilder()
+output_file = builder.build_caa_dataset(
+    model="google/gemma-3-27b-it",
+    personality="Extroversion",
+    output_dir=Path("./dataset/ext"),
+    limit_samples=1000
+)
+print(f"Generated: {output_file}")
+
+# Upload to Hub
+repo_url = builder.upload_to_hub(
+    jsonl_file=output_file,
+    repo_id="username/extroversion-caa",
+    private=False,
+    token=token
+)
+print(f"Uploaded: {repo_url}")
+```
+
+#### Error Handling
+
+```python
+from psyctl.core.dataset_builder import DatasetBuilder
+from psyctl.core.utils import validate_hf_token
+import click
+
+try:
+    # Validate token
+    token = validate_hf_token()
+
+    # Upload dataset
+    builder = DatasetBuilder()
+    repo_url = builder.upload_to_hub(
+        jsonl_file=Path("./dataset.jsonl"),
+        repo_id="username/my-dataset",
+        private=False,
+        token=token
+    )
+
+    print(f"Success: {repo_url}")
+
+except click.ClickException as e:
+    print(f"Token error: {e.message}")
+except FileNotFoundError as e:
+    print(f"File not found: {e}")
+except ValueError as e:
+    print(f"Invalid input: {e}")
+except Exception as e:
+    print(f"Upload failed: {e}")
+```
+
+---
+
+### Dataset Card Features
+
+When you upload a dataset with PSYCTL, a comprehensive dataset card is automatically generated with:
+
+#### PSYCTL Branding
+- PSYCTL logo header
+- "Generated with PSYCTL" badge
+- Links to PSYCTL repository
+
+#### Metadata
+- Personality trait
+- Generation model
+- Sample count
+- Generation timestamp
+- Source dataset
+
+#### Usage Instructions
+- Installation guide
+- PSYCTL commands for vector extraction
+- Application examples
+
+#### References
+- CAA paper link
+- P2 paper link
+- Source dataset link
+- PSYCTL documentation
+
+---
+
+### Authentication Methods
+
+#### 1. Environment Variable (Recommended)
+```powershell
+# Windows PowerShell
+$env:HF_TOKEN = "hf_xxxxxxxxxxxx"
+
+# Linux/macOS
+export HF_TOKEN="hf_xxxxxxxxxxxx"
+```
+
+#### 2. CLI Login
+```bash
+huggingface-cli login
+# Enter your token when prompted
+```
+
+#### 3. Programmatic Token
+```python
+builder.upload_to_hub(
+    jsonl_file=Path("./dataset.jsonl"),
+    repo_id="username/repo",
+    token="hf_xxxxxxxxxxxx"  # Pass token directly
+)
+```
+
+---
+
+### Best Practices
+
+#### 1. Repository Naming
+- Use descriptive names: `username/personality-trait-caa`
+- Include personality: `extroversion-caa`, `machiavellianism-caa`
+- Add version if iterating: `extroversion-caa-v2`
+
+#### 2. Privacy Settings
+- **Public** (default): For sharing with community
+- **Private** (`--private`): For internal use or sensitive data
+
+#### 3. Commit Messages
+Use descriptive messages:
+```bash
+--commit-message "Add 1000 samples for Extroversion (gemma-3-27b-it)"
+```
+
+---
+
 ## Adding Custom Datasets
 
 To use a custom Hugging Face dataset as the source:

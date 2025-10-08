@@ -34,6 +34,7 @@ def main():
 
 # 명령어 등록
 main.add_command(dataset.build_caa, name="dataset.build.caa")
+main.add_command(dataset.upload, name="dataset.upload")
 main.add_command(extract.steering, name="extract.steering")
 main.add_command(steering.apply, name="steering")
 main.add_command(benchmark.inventory, name="benchmark")

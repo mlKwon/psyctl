@@ -63,3 +63,37 @@ def validate_model_name(model_name: str) -> bool:
         logger.warning(f"Model name validation failed: {model_name}")
 
     return is_valid
+
+
+def validate_hf_token() -> str:
+    """
+    Validate HuggingFace token from environment.
+
+    Returns:
+        str: Valid HF_TOKEN
+
+    Raises:
+        click.ClickException: If HF_TOKEN is not set with helpful message
+
+    Example:
+        >>> from psyctl.core.utils import validate_hf_token
+        >>> token = validate_hf_token()
+        >>> print(f"Token: {token[:4]}...")
+    """
+    import os
+    import click
+
+    token = os.getenv("HF_TOKEN")
+    if not token:
+        raise click.ClickException(
+            "HF_TOKEN environment variable is required for uploading to HuggingFace Hub.\n\n"
+            "To set up your token:\n"
+            "  1. Get token from https://huggingface.co/settings/tokens\n"
+            "  2. Set environment variable:\n"
+            "     • Windows PowerShell: $env:HF_TOKEN=\"hf_xxxx\"\n"
+            "     • Linux/macOS: export HF_TOKEN=\"hf_xxxx\"\n"
+            "  3. Or use: huggingface-cli login"
+        )
+
+    logger.debug(f"HF_TOKEN found: {token[:4]}...{token[-4:] if len(token) > 8 else '***'}")
+    return token

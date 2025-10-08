@@ -80,20 +80,25 @@ psyctl dataset.build.caa \
   --personality "Extroversion, Machiavellism" \
   --output "./dataset/cca"
 
-# 2. Extract steering vector
+# 2. Upload dataset to HuggingFace Hub (optional)
+psyctl dataset.upload \
+  --dataset-file "./dataset/cca/caa_dataset_*.jsonl" \
+  --repo-id "username/extroversion-caa"
+
+# 3. Extract steering vector
 psyctl extract.steering \
   --model "meta-llama/Llama-3.2-3B-Instruct" \
   --layer "model.layers[13].mlp.down_proj" \
   --dataset "./dataset/cca" \
   --output "./steering_vector/out.safetensors"
 
-# 3. Steering experiment
+# 4. Steering experiment
 psyctl steering \
   --model "meta-llama/Llama-3.2-3B-Instruct" \
   --steering-vector "./steering_vector/out.safetensors" \
   --input-text "Tell me about yourself"
 
-# 4. Inventory test
+# 5. Inventory test
 psyctl benchmark \
   --model "meta-llama/Llama-3.2-3B-Instruct" \
   --steering-vector "./steering_vector/out.safetensors" \
@@ -115,7 +120,26 @@ psyctl dataset.build.caa \
 
 See [Build CAA Dataset](./docs/DATASET.BUILD.CAA.md) for detailed documentation.
 
-#### 2. Steering Vector Extraction (`extract.steering`)
+#### 2. Dataset Upload (`dataset.upload`)
+
+Upload CAA datasets to HuggingFace Hub with automatic PSYCTL branding.
+
+```bash
+psyctl dataset.upload \
+  --dataset-file "./dataset/cca/caa_dataset_20250107_143022.jsonl" \
+  --repo-id "username/extroversion-caa" \
+  --private
+```
+
+**Features:**
+- Automatic dataset card generation with PSYCTL logo
+- Comprehensive metadata (personality, model, sample count)
+- Usage instructions for vector extraction
+- Public or private repository options
+
+See [Build CAA Dataset - Uploading to HuggingFace Hub](./docs/DATASET.BUILD.CAA.md#uploading-to-huggingface-hub) for detailed documentation.
+
+#### 3. Steering Vector Extraction (`extract.steering`)
 
 Extracts steering vectors from model activations.
 
@@ -129,7 +153,7 @@ psyctl extract.steering \
 
 See [Extract Steering Vectors](./docs/EXTRACT.STEERING.md) for detailed documentation.
 
-#### 3. Steering Experiment (`steering`)
+#### 4. Steering Experiment (`steering`)
 
 Applies extracted steering vectors to generate text with personality steering.
 
@@ -142,7 +166,7 @@ psyctl steering \
 
 See [Steering Experiment](./docs/STEERING.md) for detailed documentation.
 
-#### 4. Inventory Test (`benchmark`)
+#### 5. Inventory Test (`benchmark`)
 
 Measures personality changes using psychological inventories.
 

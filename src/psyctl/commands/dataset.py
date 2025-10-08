@@ -128,3 +128,66 @@ def build_caa(
     except Exception as e:
         logger.error(f"Failed to build dataset: {e}")
         raise
+
+
+@click.command()
+@click.option(
+    "--dataset-file",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to JSONL dataset file to upload"
+)
+@click.option(
+    "--repo-id",
+    required=True,
+    help="HuggingFace repository ID (format: username/repo-name)"
+)
+@click.option(
+    "--private",
+    is_flag=True,
+    default=False,
+    help="Make repository private (default: public)"
+)
+@click.option(
+    "--commit-message",
+    default="Upload CAA dataset via PSYCTL",
+    help="Commit message for upload"
+)
+def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str):
+    """Upload CAA dataset to HuggingFace Hub."""
+    from psyctl.core.utils import validate_hf_token
+
+    logger.info("Starting dataset upload to HuggingFace Hub")
+    console.print("[blue]Uploading CAA dataset to HuggingFace Hub...[/blue]")
+
+    # Validate HF_TOKEN early
+    try:
+        token = validate_hf_token()
+        masked_token = f"{token[:4]}...{token[-4:]}" if len(token) > 8 else "***"
+        logger.info(f"HF_TOKEN found: {masked_token}")
+    except click.ClickException as e:
+        console.print(f"[red]{e.message}[/red]")
+        raise
+
+    console.print(f"Dataset File: {dataset_file}")
+    console.print(f"Repository: {repo_id}")
+    console.print(f"Privacy: {'Private' if private else 'Public'}")
+
+    try:
+        builder = DatasetBuilder()
+        repo_url = builder.upload_to_hub(
+            jsonl_file=Path(dataset_file),
+            repo_id=repo_id,
+            private=private,
+            commit_message=commit_message,
+            token=token
+        )
+
+        logger.info(f"Upload completed successfully")
+        console.print(f"[green]✓ Successfully uploaded to: {repo_url}[/green]")
+        console.print(f"\n[blue]View your dataset at:[/blue]\n{repo_url}")
+
+    except Exception as e:
+        logger.error(f"Failed to upload dataset: {e}")
+        console.print(f"[red]✗ Upload failed: {e}[/red]")
+        raise

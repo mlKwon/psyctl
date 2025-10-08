@@ -51,6 +51,9 @@ from psyctl.models.llm_loader import LLMLoader
 from psyctl.models.openrouter_client import OpenRouterClient
 from psyctl.config import INFERENCE_BATCH_SIZE, MAX_WORKERS, CHECKPOINT_INTERVAL
 
+# PSYCTL branding
+PSYCTL_LOGO_URL = "https://cdn.caveduck.io/cdn-cgi/image/anim=false,dpr=1.5,f=auto,w=400/charim/5eaf363a-94b4-4b6c-bd79-e8bf4008af70"
+
 
 class DatasetBuilder:
     """
@@ -994,6 +997,272 @@ class DatasetBuilder:
 
         return len(samples)
 
+    def _generate_dataset_card(
+        self,
+        personality: str,
+        model: str,
+        num_samples: int,
+        timestamp: str,
+        dataset_source: str = "allenai/soda"
+    ) -> str:
+        """
+        Generate HuggingFace dataset card with PSYCTL branding.
+
+        Args:
+            personality: Target personality trait
+            model: Model used for generation
+            num_samples: Number of samples in dataset
+            timestamp: Generation timestamp (ISO format)
+            dataset_source: Source dataset used
+
+        Returns:
+            str: Markdown content for README.md
+        """
+        return f"""---
+license: mit
+language:
+- en
+tags:
+- psyctl
+- caa
+- personality-steering
+- contrastive-activation-addition
+- {personality.lower().replace(' ', '-')}
+task_categories:
+- text-generation
+size_categories:
+- 1K<n<10K
+---
+
+<div align="center">
+  <img src="{PSYCTL_LOGO_URL}" alt="PSYCTL Logo" width="200"/>
+
+  # CAA Dataset: {personality}
+
+  **Generated with [PSYCTL](https://github.com/CaveduckAI/psyctl) - LLM Personality Steering Tool**
+
+  [![PSYCTL](https://img.shields.io/badge/Generated%20by-PSYCTL-blue)](https://github.com/CaveduckAI/psyctl)
+  [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+</div>
+
+---
+
+## 📊 Dataset Overview
+
+This dataset contains **{num_samples} samples** designed for extracting personality steering vectors using the **Contrastive Activation Addition (CAA)** method. Each sample presents a scenario with two response options: one exhibiting the target personality trait and one neutral.
+
+### Dataset Details
+
+| Property | Value |
+|----------|-------|
+| **Personality Trait** | {personality} |
+| **Generation Model** | `{model}` |
+| **Source Dataset** | `{dataset_source}` |
+| **Sample Count** | {num_samples} |
+| **Generated** | {timestamp} |
+| **Format** | JSONL |
+
+---
+
+## 🎯 Intended Use
+
+### Primary Use Case
+Extract steering vectors to modify LLM behavior to exhibit **{personality}** traits.
+
+### Workflow
+1. **Dataset Generation** (this dataset) ✓
+2. **Vector Extraction**: Use PSYCTL `extract.steering` command
+3. **Personality Application**: Apply vectors with `steering` command
+4. **Evaluation**: Test with psychological inventories
+
+---
+
+## 📝 Dataset Structure
+
+### Fields
+- **question**: Scenario description with two answer options
+- **positive**: Answer option exhibiting target personality
+- **neutral**: Answer option with neutral personality
+
+### Example
+```json
+{{{{
+  "question": "[Situation]\\nAlice is at a party...\\n[Question]\\nWhat should Alice say?\\n1. Let's dance!\\n2. I'll observe.\\n[Answer]",
+  "positive": "(1",
+  "neutral": "(2"
+}}}}
+```
+
+---
+
+## 🚀 Usage with PSYCTL
+
+### Installation
+```bash
+pip install psyctl
+```
+
+### Extract Steering Vector
+```bash
+psyctl extract.steering \\
+  --model "meta-llama/Llama-3.2-3B-Instruct" \\
+  --layer "model.layers[13].mlp.down_proj" \\
+  --dataset "YOUR_USERNAME/{personality.lower()}-caa" \\
+  --output "./vectors/{personality.lower()}.safetensors"
+```
+
+### Apply Personality Steering
+```bash
+psyctl steering \\
+  --model "meta-llama/Llama-3.2-3B-Instruct" \\
+  --steering-vector "./vectors/{personality.lower()}.safetensors" \\
+  --input-text "How should I approach this situation?"
+```
+
+---
+
+## 📚 References
+
+- **PSYCTL**: [GitHub Repository](https://github.com/CaveduckAI/psyctl)
+- **CAA Paper**: [Contrastive Activation Addition](https://arxiv.org/abs/2312.06681)
+- **P2 Paper**: [Evaluating and Inducing Personality](https://arxiv.org/abs/2206.07550)
+- **Source Dataset**: [{dataset_source}](https://huggingface.co/datasets/{dataset_source})
+
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+## 🔗 Links
+
+- [PSYCTL Documentation](https://github.com/CaveduckAI/psyctl)
+- [Report Issues](https://github.com/CaveduckAI/psyctl/issues)
+- [CaveduckAI](https://caveduck.io)
+
+---
+
+<div align="center">
+  <sub>
+    Generated with ❤️ by <a href="https://github.com/CaveduckAI/psyctl">PSYCTL</a>
+  </sub>
+</div>
+"""
+
+    def upload_to_hub(
+        self,
+        jsonl_file: Path,
+        repo_id: str,
+        private: bool = False,
+        commit_message: str = "Upload CAA dataset via PSYCTL",
+        token: Optional[str] = None
+    ) -> str:
+        """
+        Upload CAA dataset to HuggingFace Hub with PSYCTL branding.
+
+        Args:
+            jsonl_file: Path to JSONL dataset file
+            repo_id: HuggingFace repository ID (username/repo-name)
+            private: Make repository private (default: False)
+            commit_message: Commit message for upload
+            token: HuggingFace token (uses HF_TOKEN env if None)
+
+        Returns:
+            str: Repository URL
+
+        Raises:
+            ValueError: If repo_id format is invalid
+            FileNotFoundError: If jsonl_file doesn't exist
+
+        Example:
+            >>> builder = DatasetBuilder()
+            >>> url = builder.upload_to_hub(
+            ...     jsonl_file=Path("./dataset/caa_dataset_20250107.jsonl"),
+            ...     repo_id="username/extroversion-caa",
+            ...     private=False
+            ... )
+            >>> print(f"Uploaded to: {url}")
+        """
+        from datasets import Dataset
+        from huggingface_hub import HfApi
+
+        # Validate inputs
+        if not jsonl_file.exists():
+            raise FileNotFoundError(f"Dataset file not found: {jsonl_file}")
+
+        if "/" not in repo_id:
+            raise ValueError(
+                f"Invalid repo_id format: '{repo_id}'. "
+                "Expected format: 'username/repo-name'"
+            )
+
+        # Use provided token or environment variable
+        if token is None:
+            from psyctl.core.utils import validate_hf_token
+            token = validate_hf_token()
+
+        self.logger.info(f"Loading dataset from: {jsonl_file}")
+
+        # Load JSONL to Dataset
+        data = []
+        with open(jsonl_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                data.append(json.loads(line))
+
+        dataset = Dataset.from_list(data)
+        self.logger.info(f"Loaded {len(dataset)} samples")
+
+        # Extract metadata from filename or use defaults
+        # Format: caa_dataset_20250107_143022.jsonl
+        timestamp = datetime.now().isoformat()
+
+        # Generate dataset card
+        card_content = self._generate_dataset_card(
+            personality=self.personality or "Unknown",
+            model=self.active_model or "Unknown",
+            num_samples=len(dataset),
+            timestamp=timestamp
+        )
+
+        # Create README.md
+        readme_path = jsonl_file.parent / "README.md"
+        with open(readme_path, 'w', encoding='utf-8') as f:
+            f.write(card_content)
+
+        self.logger.info(f"Generated dataset card: {readme_path}")
+
+        # Upload to Hub
+        self.logger.info(f"Uploading to HuggingFace Hub: {repo_id}")
+        self.logger.info(f"Privacy: {'Private' if private else 'Public'}")
+
+        try:
+            dataset.push_to_hub(
+                repo_id=repo_id,
+                private=private,
+                token=token,
+                commit_message=commit_message
+            )
+
+            # Upload README separately
+            api = HfApi(token=token)
+            api.upload_file(
+                path_or_fileobj=str(readme_path),
+                path_in_repo="README.md",
+                repo_id=repo_id,
+                repo_type="dataset",
+                commit_message="Add PSYCTL dataset card"
+            )
+
+            repo_url = f"https://huggingface.co/datasets/{repo_id}"
+            self.logger.info(f"Successfully uploaded to: {repo_url}")
+
+            return repo_url
+
+        except Exception as e:
+            self.logger.error(f"Upload failed: {e}")
+            raise
 
 
 # Example usage and testing
