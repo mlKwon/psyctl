@@ -1107,15 +1107,15 @@ pip install psyctl
 psyctl extract.steering \\
   --model "meta-llama/Llama-3.2-3B-Instruct" \\
   --layer "model.layers[13].mlp.down_proj" \\
-  --dataset "YOUR_USERNAME/{personality.lower()}-caa" \\
-  --output "./vectors/{personality.lower()}.safetensors"
+  --dataset "YOUR_USERNAME/repo-name" \\
+  --output "./vectors/steering_vector.safetensors"
 ```
 
 ### Apply Personality Steering
 ```bash
 psyctl steering \\
   --model "meta-llama/Llama-3.2-3B-Instruct" \\
-  --steering-vector "./vectors/{personality.lower()}.safetensors" \\
+  --steering-vector "./vectors/steering_vector.safetensors" \\
   --input-text "How should I approach this situation?"
 ```
 
@@ -1123,7 +1123,7 @@ psyctl steering \\
 
 ## 📚 References
 
-- **PSYCTL**: [GitHub Repository](https://github.com/CaveduckAI/psyctl)
+- **PSYCTL**: [GitHub Repository](https://github.com/modulabs-personalab/psyctl)
 - **CAA Paper**: [Contrastive Activation Addition](https://arxiv.org/abs/2312.06681)
 - **P2 Paper**: [Evaluating and Inducing Personality](https://arxiv.org/abs/2206.07550)
 - **Source Dataset**: [{dataset_source}](https://huggingface.co/datasets/{dataset_source})
@@ -1136,13 +1136,6 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
-## 🔗 Links
-
-- [PSYCTL Documentation](https://github.com/CaveduckAI/psyctl)
-- [Report Issues](https://github.com/CaveduckAI/psyctl/issues)
-- [CaveduckAI](https://caveduck.io)
-
----
 
 <div align="center">
   <sub>
