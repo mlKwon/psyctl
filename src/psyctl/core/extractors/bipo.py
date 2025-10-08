@@ -212,7 +212,17 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         # Initialize steering vector
         device = next(model.parameters()).device
         dtype = next(model.parameters()).dtype
-        hidden_size = model.config.hidden_size
+
+        # Get hidden size from config (support different model architectures)
+        if hasattr(model.config, 'hidden_size'):
+            hidden_size = model.config.hidden_size
+        elif hasattr(model.config, 'text_config') and hasattr(model.config.text_config, 'hidden_size'):
+            hidden_size = model.config.text_config.hidden_size
+        else:
+            raise AttributeError(
+                f"Cannot determine hidden_size from {type(model.config).__name__}. "
+                "Model config must have either 'hidden_size' or 'text_config.hidden_size' attribute."
+            )
 
         # Log GPU information
         if device.type == 'cuda':
