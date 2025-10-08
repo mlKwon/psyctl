@@ -56,6 +56,11 @@ logger = get_logger("steering")
     is_flag=True,
     help="Use orthogonalized addition method",
 )
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Log full prompt after chat template application",
+)
 def apply(
     model: str,
     steering_vector: str,
@@ -66,6 +71,7 @@ def apply(
     top_p: float,
     top_k: int,
     orthogonal: bool,
+    verbose: bool,
 ):
     """
     Apply steering vector and generate text.
@@ -118,6 +124,7 @@ def apply(
             top_p=top_p,
             top_k=top_k,
             orthogonal=orthogonal,
+            verbose=verbose,
         )
 
         logger.info("Text generation completed")

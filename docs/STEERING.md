@@ -74,6 +74,7 @@ psyctl steering \
 - `--top-p`: Top-p (nucleus) sampling parameter (default: 0.9)
 - `--top-k`: Top-k sampling parameter (default: 50)
 - `--orthogonal`: Use orthogonalized addition method
+- `--verbose`: Log full prompt after chat template application
 
 ### Python Code Usage
 
@@ -100,7 +101,7 @@ result = applier.apply_steering(
 print(result)
 ```
 
-#### Using Persistent Steering (NEW - Most Efficient for Multiple Generations)
+#### Using Persistent Steering (Python API Only - Most Efficient for Multiple Generations)
 
 The `get_steering_applied_model()` method returns a model with steering hooks already attached. This is the most efficient way to generate multiple outputs with the same steering configuration:
 
@@ -214,7 +215,7 @@ result = applier.apply_steering(
 print(result)
 ```
 
-#### Using Verbose Logging (NEW)
+#### Using Verbose Logging
 
 Enable verbose logging to see the full prompt after chat template application:
 
@@ -234,7 +235,7 @@ result = applier.apply_steering(
 )
 ```
 
-#### Using Per-Layer Strength (NEW)
+#### Using Per-Layer Strength (Python API Only)
 
 Control steering strength individually for each layer:
 
@@ -313,7 +314,7 @@ psyctl steering --model "google/gemma-3-270m-it" \
   --strength 2.5
 ```
 
-**Per-Layer Strength (Dict[str, float]) - Python API Only:**
+**Per-Layer Strength (Dict[str, float] - Python API Only):**
 
 Control strength for each layer individually:
 
