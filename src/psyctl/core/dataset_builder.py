@@ -188,6 +188,7 @@ class DatasetBuilder:
             output_dir.mkdir(parents=True, exist_ok=True)
             self.logger.debug(f"Created output directory: {output_dir}")
             self.personality = personality
+            self.dataset_name = dataset_name
 
             # 1. Load model or initialize OpenRouter client
             if self.use_openrouter:
@@ -1003,7 +1004,8 @@ class DatasetBuilder:
         model: str,
         num_samples: int,
         timestamp: str,
-        dataset_source: str = "allenai/soda"
+        dataset_source: str = "allenai/soda",
+        license: Optional[str] = None
     ) -> str:
         """
         Generate HuggingFace dataset card with PSYCTL branding.
@@ -1014,15 +1016,23 @@ class DatasetBuilder:
             num_samples: Number of samples in dataset
             timestamp: Generation timestamp (ISO format)
             dataset_source: Source dataset used
+            license: License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')
 
         Returns:
             str: Markdown content for README.md
         """
-        return f"""---
-license: mit
-language:
-- en
-tags:
+        # Build YAML front matter
+        yaml_parts = ["---"]
+        if license:
+            yaml_parts.append(f"license: {license}")
+        yaml_parts.extend([
+            "language:",
+            "- en",
+            "tags:"
+        ])
+        yaml_header = "\n".join(yaml_parts)
+
+        return f"""{yaml_header}
 - psyctl
 - caa
 - personality-steering
@@ -1034,18 +1044,6 @@ size_categories:
 - 1K<n<10K
 ---
 
-<div align="center">
-  <img src="{PSYCTL_LOGO_URL}" alt="PSYCTL Logo" width="200"/>
-
-  # CAA Dataset: {personality}
-
-  **Generated with [PSYCTL](https://github.com/CaveduckAI/psyctl) - LLM Personality Steering Tool**
-
-  [![PSYCTL](https://img.shields.io/badge/Generated%20by-PSYCTL-blue)](https://github.com/CaveduckAI/psyctl)
-  [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
-</div>
-
----
 
 ## 📊 Dataset Overview
 
@@ -1129,17 +1127,16 @@ psyctl steering \\
 - **Source Dataset**: [{dataset_source}](https://huggingface.co/datasets/{dataset_source})
 
 ---
-
+{"" if not license else f'''
 ## 📄 License
 
-MIT License - See [LICENSE](LICENSE) for details.
+{license.upper()} License - See [LICENSE](LICENSE) for details.
 
 ---
-
-
+'''}
 <div align="center">
   <sub>
-    Generated with ❤️ by <a href="https://github.com/CaveduckAI/psyctl">PSYCTL</a>
+    Generated with ❤️ by <a href="https://github.com/modulabs-personalab/psyctl">PSYCTL</a>
   </sub>
 </div>
 """
@@ -1150,7 +1147,8 @@ MIT License - See [LICENSE](LICENSE) for details.
         repo_id: str,
         private: bool = False,
         commit_message: str = "Upload CAA dataset via PSYCTL",
-        token: Optional[str] = None
+        token: Optional[str] = None,
+        license: Optional[str] = None
     ) -> str:
         """
         Upload CAA dataset to HuggingFace Hub with PSYCTL branding.
@@ -1161,6 +1159,7 @@ MIT License - See [LICENSE](LICENSE) for details.
             private: Make repository private (default: False)
             commit_message: Commit message for upload
             token: HuggingFace token (uses HF_TOKEN env if None)
+            license: License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')
 
         Returns:
             str: Repository URL
@@ -1174,7 +1173,8 @@ MIT License - See [LICENSE](LICENSE) for details.
             >>> url = builder.upload_to_hub(
             ...     jsonl_file=Path("./dataset/caa_dataset_20250107.jsonl"),
             ...     repo_id="username/extroversion-caa",
-            ...     private=False
+            ...     private=False,
+            ...     license="mit"
             ... )
             >>> print(f"Uploaded to: {url}")
         """
@@ -1216,7 +1216,9 @@ MIT License - See [LICENSE](LICENSE) for details.
             personality=self.personality or "Unknown",
             model=self.active_model or "Unknown",
             num_samples=len(dataset),
-            timestamp=timestamp
+            timestamp=timestamp,
+            dataset_source=self.dataset_name or "allenai/soda",
+            license=license
         )
 
         # Create README.md

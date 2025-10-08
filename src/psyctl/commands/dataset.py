@@ -153,7 +153,12 @@ def build_caa(
     default="Upload CAA dataset via PSYCTL",
     help="Commit message for upload"
 )
-def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str):
+@click.option(
+    "--license",
+    required=False,
+    help="License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')"
+)
+def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str, license: str):
     """Upload CAA dataset to HuggingFace Hub."""
     from psyctl.core.utils import validate_hf_token
 
@@ -172,6 +177,8 @@ def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str):
     console.print(f"Dataset File: {dataset_file}")
     console.print(f"Repository: {repo_id}")
     console.print(f"Privacy: {'Private' if private else 'Public'}")
+    if license:
+        console.print(f"License: {license}")
 
     try:
         builder = DatasetBuilder()
@@ -180,7 +187,8 @@ def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str):
             repo_id=repo_id,
             private=private,
             commit_message=commit_message,
-            token=token
+            token=token,
+            license=license
         )
 
         logger.info(f"Upload completed successfully")
