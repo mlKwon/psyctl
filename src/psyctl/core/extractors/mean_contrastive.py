@@ -1,7 +1,7 @@
 """Mean Contrastive Activation Vector extractor."""
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Union
 
 import torch
 from torch import nn
@@ -48,7 +48,8 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
         model: nn.Module,
         tokenizer: AutoTokenizer,
         layers: List[str],
-        dataset_path: Path,
+        dataset_path: Optional[Union[Path, str]] = None,
+        dataset: Optional[List[dict]] = None,
         batch_size: int = None,
         normalize: bool = False,
         **kwargs,
@@ -60,7 +61,8 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
             model: Loaded language model
             tokenizer: Model tokenizer
             layers: List of layer paths (e.g., ["model.layers[13].mlp.down_proj"])
-            dataset_path: Path to CAA dataset
+            dataset_path: Path to CAA dataset or HuggingFace dataset name (optional if dataset provided)
+            dataset: Pre-loaded dataset as list of dicts (optional if dataset_path provided)
             batch_size: Batch size for inference (default: from config)
             normalize: Whether to normalize vectors to unit length
             **kwargs: Additional parameters (unused)
@@ -72,8 +74,12 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
                 "model.layers[14].mlp.down_proj": tensor(...)
             }
 
+        Raises:
+            ValueError: If neither dataset_path nor dataset is provided, or both are provided
+
         Example:
             >>> extractor = MeanContrastiveActivationVectorExtractor()
+            >>> # Using dataset_path
             >>> vectors = extractor.extract(
             ...     model=model,
             ...     tokenizer=tokenizer,
@@ -81,12 +87,27 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
             ...     dataset_path=Path("./dataset/caa"),
             ...     batch_size=16
             ... )
+            >>> # Using pre-loaded dataset
+            >>> dataset = [{"question": "...", "positive": "...", "neutral": "..."}]
+            >>> vectors = extractor.extract(
+            ...     model=model,
+            ...     tokenizer=tokenizer,
+            ...     layers=["model.layers[13].mlp.down_proj"],
+            ...     dataset=dataset,
+            ...     batch_size=16
+            ... )
         """
+        # Validate dataset parameters
+        if dataset is not None and dataset_path is not None:
+            raise ValueError("Cannot provide both 'dataset' and 'dataset_path'. Choose one.")
+        if dataset is None and dataset_path is None:
+            raise ValueError("Must provide either 'dataset' or 'dataset_path'.")
+
         if batch_size is None:
             batch_size = INFERENCE_BATCH_SIZE
 
         self.logger.info(f"Extracting steering vectors from {len(layers)} layers")
-        self.logger.info(f"Dataset: {dataset_path}")
+        self.logger.info(f"Dataset: {'pre-loaded' if dataset else dataset_path}")
         self.logger.info(f"Batch size: {batch_size}")
         self.logger.info(f"Normalize: {normalize}")
 
@@ -95,9 +116,13 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
         if not self.layer_accessor.validate_layers(model, layers):
             raise ValueError("Some layer paths are invalid")
 
-        # 2. Load dataset
-        self.logger.info("Loading dataset...")
-        dataset = self.dataset_loader.load(dataset_path)
+        # 2. Load dataset if not provided
+        if dataset is None:
+            self.logger.info("Loading dataset...")
+            dataset = self.dataset_loader.load(dataset_path)
+        else:
+            self.logger.info("Using pre-loaded dataset...")
+
         positive_prompts, neutral_prompts = self.dataset_loader.create_prompts(
             dataset, tokenizer
         )

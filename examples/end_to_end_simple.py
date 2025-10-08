@@ -163,7 +163,7 @@ def main():
         # Use middle layer for gemma-3-270m-it (18 layers total)
         target_layers = ["model.layers.9.mlp.down_proj"]
 
-        extractor.extract_caa(
+        extractor.extract_steering_vector(
             model_name=STEERING_MODEL,
             layers=target_layers,
             dataset_path=dataset_file,

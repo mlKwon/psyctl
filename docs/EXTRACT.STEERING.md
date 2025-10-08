@@ -70,9 +70,9 @@ psyctl extract.steering \
 
 ### Python Code Usage
 
-You can use the `SteeringExtractor` class directly in Python code:
+You can use the `SteeringExtractor` class directly in Python code with flexible input options.
 
-#### Basic Example
+#### Basic Example (Using model_name and dataset_path)
 
 ```python
 from pathlib import Path
@@ -82,7 +82,7 @@ from psyctl.core.steering_extractor import SteeringExtractor
 extractor = SteeringExtractor()
 
 # Extract steering vector using CAA method
-vectors = extractor.extract_caa(
+vectors = extractor.extract_steering_vector(
     model_name="google/gemma-2-2b-it",
     layers=["model.layers.13.mlp.down_proj"],
     dataset_path=Path("./results/caa_dataset_20251007_160523.jsonl"),
@@ -97,6 +97,101 @@ for layer_name, vector in vectors.items():
     print(f"  {layer_name}: shape={vector.shape}, norm={vector.norm().item():.4f}")
 ```
 
+#### Using Pre-loaded Model
+
+```python
+from pathlib import Path
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from psyctl.core.steering_extractor import SteeringExtractor
+
+# Load model and tokenizer manually
+model = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b-it")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-it")
+
+# Initialize extractor
+extractor = SteeringExtractor()
+
+# Extract using pre-loaded model
+vectors = extractor.extract_steering_vector(
+    model=model,
+    tokenizer=tokenizer,
+    layers=["model.layers.13.mlp.down_proj"],
+    dataset_path=Path("./results/caa_dataset.jsonl"),
+    output_path=Path("./results/steering.safetensors"),
+    method="mean_contrastive"
+)
+```
+
+#### Using Pre-loaded Dataset
+
+```python
+from pathlib import Path
+from datasets import load_dataset
+from psyctl.core.steering_extractor import SteeringExtractor
+
+# Load dataset from HuggingFace
+hf_dataset = load_dataset("CaveduckAI/steer-personality-rudeness-ko", split="train")
+
+# Convert to required format
+dataset = [
+    {
+        "question": item["question"],
+        "positive": item["positive"],
+        "neutral": item["neutral"]
+    }
+    for item in hf_dataset
+]
+
+# Initialize extractor
+extractor = SteeringExtractor()
+
+# Extract using pre-loaded dataset
+vectors = extractor.extract_steering_vector(
+    model_name="google/gemma-2-2b-it",
+    layers=["model.layers.13.mlp.down_proj"],
+    dataset=dataset,
+    output_path=Path("./results/steering.safetensors"),
+    method="mean_contrastive"
+)
+```
+
+#### Using Both Pre-loaded Model and Dataset
+
+```python
+from pathlib import Path
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from datasets import load_dataset
+from psyctl.core.steering_extractor import SteeringExtractor
+
+# Load model
+model = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b-it")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-it")
+
+# Load and prepare dataset
+hf_dataset = load_dataset("CaveduckAI/steer-personality-rudeness-ko", split="train")
+dataset = [
+    {
+        "question": item["question"],
+        "positive": item["positive"],
+        "neutral": item["neutral"]
+    }
+    for item in hf_dataset
+]
+
+# Initialize extractor
+extractor = SteeringExtractor()
+
+# Extract using both pre-loaded model and dataset
+vectors = extractor.extract_steering_vector(
+    model=model,
+    tokenizer=tokenizer,
+    dataset=dataset,
+    layers=["model.layers.13.mlp.down_proj"],
+    output_path=Path("./results/steering.safetensors"),
+    method="mean_contrastive"
+)
+```
+
 #### BiPO Method Example
 
 ```python
@@ -106,7 +201,7 @@ from psyctl.core.steering_extractor import SteeringExtractor
 extractor = SteeringExtractor()
 
 # Extract using BiPO optimization method
-vectors = extractor.extract_caa(
+vectors = extractor.extract_steering_vector(
     model_name="google/gemma-2-2b-it",
     layers=["model.layers.13.mlp"],  # BiPO uses layer modules, not projections
     dataset_path=Path("./results/caa_dataset_20251007_160523.jsonl"),
@@ -135,7 +230,7 @@ layers = [
     "model.layers.14.mlp.down_proj",
 ]
 
-vectors = extractor.extract_caa(
+vectors = extractor.extract_steering_vector(
     model_name="google/gemma-2-2b-it",
     layers=layers,
     dataset_path=Path("./results/caa_dataset_20251007_160523.jsonl"),
@@ -201,7 +296,7 @@ from safetensors.torch import load_file
 # 1. Extract steering vector
 extractor = SteeringExtractor()
 
-vectors = extractor.extract_caa(
+vectors = extractor.extract_steering_vector(
     model_name="google/gemma-2-2b-it",
     layers=["model.layers.13.mlp.down_proj"],
     dataset_path=Path("./results/caa_dataset_20251007_160523.jsonl"),

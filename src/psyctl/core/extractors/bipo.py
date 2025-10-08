@@ -2,7 +2,7 @@
 
 import random
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -54,7 +54,8 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         model: nn.Module,
         tokenizer: AutoTokenizer,
         layers: List[str],
-        dataset_path: Path,
+        dataset_path: Optional[Union[Path, str]] = None,
+        dataset: Optional[List[dict]] = None,
         batch_size: int = None,
         normalize: bool = False,
         lr: float = 5e-4,
@@ -69,7 +70,8 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             model: Loaded language model
             tokenizer: Model tokenizer
             layers: List of layer paths (e.g., ["model.layers[13].mlp"])
-            dataset_path: Path to CAA dataset
+            dataset_path: Path to CAA dataset or HuggingFace dataset name (optional if dataset provided)
+            dataset: Pre-loaded dataset as list of dicts (optional if dataset_path provided)
             batch_size: Batch size for training (default: from config)
             normalize: Whether to normalize vectors to unit length
             lr: Learning rate for AdamW optimizer (default: 5e-4)
@@ -80,8 +82,12 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         Returns:
             Dictionary mapping layer names to steering vectors
 
+        Raises:
+            ValueError: If neither dataset_path nor dataset is provided, or both are provided
+
         Example:
             >>> extractor = BiPOVectorExtractor()
+            >>> # Using dataset_path
             >>> vectors = extractor.extract(
             ...     model=model,
             ...     tokenizer=tokenizer,
@@ -91,12 +97,29 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             ...     beta=0.1,
             ...     epochs=10
             ... )
+            >>> # Using pre-loaded dataset
+            >>> dataset = [{"question": "...", "positive": "...", "neutral": "..."}]
+            >>> vectors = extractor.extract(
+            ...     model=model,
+            ...     tokenizer=tokenizer,
+            ...     layers=["model.layers[13].mlp"],
+            ...     dataset=dataset,
+            ...     lr=5e-4,
+            ...     beta=0.1,
+            ...     epochs=10
+            ... )
         """
+        # Validate dataset parameters
+        if dataset is not None and dataset_path is not None:
+            raise ValueError("Cannot provide both 'dataset' and 'dataset_path'. Choose one.")
+        if dataset is None and dataset_path is None:
+            raise ValueError("Must provide either 'dataset' or 'dataset_path'.")
+
         if batch_size is None:
             batch_size = INFERENCE_BATCH_SIZE
 
         self.logger.info(f"Extracting BiPO steering vectors from {len(layers)} layers")
-        self.logger.info(f"Dataset: {dataset_path}")
+        self.logger.info(f"Dataset: {'pre-loaded' if dataset else dataset_path}")
         self.logger.info(f"Batch size: {batch_size}")
         self.logger.info(f"Learning rate: {lr}")
         self.logger.info(f"Beta: {beta}")
@@ -108,9 +131,12 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         if not self.layer_accessor.validate_layers(model, layers):
             raise ValueError("Some layer paths are invalid")
 
-        # 2. Load dataset
-        self.logger.info("Loading dataset...")
-        dataset = self.dataset_loader.load(dataset_path)
+        # 2. Load dataset if not provided
+        if dataset is None:
+            self.logger.info("Loading dataset...")
+            dataset = self.dataset_loader.load(dataset_path)
+        else:
+            self.logger.info("Using pre-loaded dataset...")
 
         # 3. Freeze model parameters
         for param in model.parameters():

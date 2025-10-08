@@ -180,7 +180,7 @@ def steering(
                 "epochs": epochs,
             }
 
-        vectors = extractor.extract_caa(
+        vectors = extractor.extract_steering_vector(
             model_name=model,
             layers=layer_list,
             dataset_path=Path(dataset),
