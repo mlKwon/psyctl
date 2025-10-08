@@ -25,7 +25,9 @@ The steering process involves:
 
 ## Usage
 
-### Basic Command
+### CLI Usage
+
+#### Basic Command
 
 Apply a steering vector to generate text:
 
@@ -36,7 +38,7 @@ psyctl steering \
   --input-text "Tell me about yourself"
 ```
 
-### With Custom Strength
+#### With Custom Strength
 
 Adjust the steering strength multiplier:
 
@@ -48,7 +50,7 @@ psyctl steering \
   --strength 1.5
 ```
 
-### Using Orthogonalized Addition
+#### Using Orthogonalized Addition
 
 Apply steering with the orthogonalized addition method:
 
@@ -61,7 +63,7 @@ psyctl steering \
   --strength 2.0
 ```
 
-### Command-Line Options
+#### Command-Line Options
 
 - `--model`: Model name or HuggingFace identifier (required)
 - `--steering-vector`: Path to steering vector file (.safetensors) (required)
@@ -72,6 +74,111 @@ psyctl steering \
 - `--top-p`: Top-p (nucleus) sampling parameter (default: 0.9)
 - `--top-k`: Top-k sampling parameter (default: 50)
 - `--orthogonal`: Use orthogonalized addition method
+
+### Python Code Usage
+
+You can use the `SteeringApplier` class directly in Python code with flexible input options.
+
+#### Basic Example (Using model_name)
+
+```python
+from pathlib import Path
+from psyctl.core.steering_applier import SteeringApplier
+
+# Initialize applier
+applier = SteeringApplier()
+
+# Apply steering with model_name
+result = applier.apply_steering(
+    model_name="google/gemma-3-270m-it",
+    steering_vector_path=Path("./steering_vector/out.safetensors"),
+    input_text="Tell me about yourself",
+    strength=1.5
+)
+
+print(result)
+```
+
+#### Using Pre-loaded Model (Efficient for Multiple Generations)
+
+```python
+from pathlib import Path
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from psyctl.core.steering_applier import SteeringApplier
+
+# Load model and tokenizer once
+model = AutoModelForCausalLM.from_pretrained("google/gemma-3-270m-it")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-270m-it")
+
+# Initialize applier
+applier = SteeringApplier()
+
+# Apply steering multiple times with different inputs/strengths
+# No need to reload the model each time!
+test_inputs = [
+    "Hello, how are you?",
+    "Tell me about yourself",
+    "What is your opinion on AI?"
+]
+
+for input_text in test_inputs:
+    result = applier.apply_steering(
+        model=model,
+        tokenizer=tokenizer,
+        steering_vector_path=Path("./steering_vector/out.safetensors"),
+        input_text=input_text,
+        strength=1.5
+    )
+    print(f"Input: {input_text}")
+    print(f"Output: {result}\n")
+```
+
+#### Experimenting with Different Strengths
+
+```python
+from pathlib import Path
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from psyctl.core.steering_applier import SteeringApplier
+
+# Load model once
+model = AutoModelForCausalLM.from_pretrained("google/gemma-3-270m-it")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-270m-it")
+
+applier = SteeringApplier()
+input_text = "Hello, how are you?"
+
+# Test different steering strengths efficiently
+for strength in [0.5, 1.0, 1.5, 2.0, 2.5]:
+    result = applier.apply_steering(
+        model=model,
+        tokenizer=tokenizer,
+        steering_vector_path=Path("./steering_vector/rudeness.safetensors"),
+        input_text=input_text,
+        strength=strength
+    )
+    print(f"Strength {strength}: {result}\n")
+```
+
+#### Using Orthogonalized Addition in Python
+
+```python
+from pathlib import Path
+from psyctl.core.steering_applier import SteeringApplier
+
+applier = SteeringApplier()
+
+# Apply with orthogonalized addition method
+result = applier.apply_steering(
+    model_name="google/gemma-3-270m-it",
+    steering_vector_path=Path("./steering_vector/out.safetensors"),
+    input_text="What is your personality like?",
+    strength=2.0,
+    orthogonal=True,  # Enable orthogonalized addition
+    temperature=0.7
+)
+
+print(result)
+```
 
 ## Steering Parameters
 

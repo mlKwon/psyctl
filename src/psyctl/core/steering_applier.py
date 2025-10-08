@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import torch
+from torch import nn
+from transformers import AutoTokenizer
 
 from psyctl.core.layer_accessor import LayerAccessor
 from psyctl.core.logger import get_logger
@@ -22,9 +24,11 @@ class SteeringApplier:
 
     def apply_steering(
         self,
-        model_name: str,
         steering_vector_path: Path,
         input_text: str,
+        model_name: Optional[str] = None,
+        model: Optional[nn.Module] = None,
+        tokenizer: Optional[AutoTokenizer] = None,
         strength: float = 1.0,
         max_new_tokens: int = 200,
         temperature: float = 1.0,
@@ -36,9 +40,11 @@ class SteeringApplier:
         Apply steering vector and generate text.
 
         Args:
-            model_name: Hugging Face model identifier
             steering_vector_path: Path to steering vector file
             input_text: Input text for generation
+            model_name: Hugging Face model identifier (optional if model provided)
+            model: Pre-loaded model (optional if model_name provided)
+            tokenizer: Pre-loaded tokenizer (optional if model_name provided)
             strength: Steering strength multiplier (default: 1.0)
             max_new_tokens: Maximum number of tokens to generate
             temperature: Sampling temperature (0.0 for greedy)
@@ -49,7 +55,12 @@ class SteeringApplier:
         Returns:
             Generated text string
 
-        Example:
+        Raises:
+            ValueError: If neither model_name nor model is provided, or both are provided
+            ValueError: If model is provided without tokenizer
+
+        Examples:
+            >>> # Example 1: Using model_name (original usage)
             >>> applier = SteeringApplier()
             >>> result = applier.apply_steering(
             ...     model_name="google/gemma-3-270m-it",
@@ -57,8 +68,39 @@ class SteeringApplier:
             ...     input_text="hello world",
             ...     strength=1.5
             ... )
+
+            >>> # Example 2: Using pre-loaded model (efficient for multiple generations)
+            >>> from transformers import AutoModelForCausalLM, AutoTokenizer
+            >>> model = AutoModelForCausalLM.from_pretrained("google/gemma-3-270m-it")
+            >>> tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-270m-it")
+            >>> applier = SteeringApplier()
+            >>> for strength in [0.5, 1.0, 1.5]:
+            ...     result = applier.apply_steering(
+            ...         model=model,
+            ...         tokenizer=tokenizer,
+            ...         steering_vector_path=Path("./vector.safetensors"),
+            ...         input_text="hello world",
+            ...         strength=strength
+            ...     )
         """
-        self.logger.info(f"Applying steering vector for model: {model_name}")
+        # Validate model parameters
+        if model is not None and model_name is not None:
+            raise ValueError("Cannot provide both 'model' and 'model_name'. Choose one.")
+        if model is None and model_name is None:
+            raise ValueError("Must provide either 'model' or 'model_name'.")
+        if model is not None and tokenizer is None:
+            raise ValueError("Must provide 'tokenizer' when providing 'model'.")
+
+        # Determine model identifier for logging
+        if model_name:
+            model_identifier = model_name
+        else:
+            try:
+                model_identifier = model.config._name_or_path
+            except AttributeError:
+                model_identifier = "unknown"
+
+        self.logger.info(f"Applying steering vector for model: {model_identifier}")
         self.logger.info(f"Steering vector path: {steering_vector_path}")
         self.logger.info(f"Input text: {input_text}")
         self.logger.info(f"Strength: {strength}, Temperature: {temperature}")
@@ -70,9 +112,12 @@ class SteeringApplier:
                     f"Steering vector file does not exist: {steering_vector_path}"
                 )
 
-            # 1. Load model and tokenizer
-            self.logger.info("Loading model and tokenizer...")
-            model, tokenizer = self.llm_loader.load_model(model_name)
+            # 1. Load model and tokenizer if not provided
+            if model is None:
+                self.logger.info("Loading model and tokenizer...")
+                model, tokenizer = self.llm_loader.load_model(model_name)
+            else:
+                self.logger.info("Using pre-loaded model")
 
             # 2. Load steering vectors and metadata
             self.logger.info("Loading steering vectors...")
