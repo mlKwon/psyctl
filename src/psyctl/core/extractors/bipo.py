@@ -145,14 +145,19 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         # 4. Extract vectors for each layer
         steering_vectors = {}
 
-        for layer_str in layers:
-            self.logger.info(f"Training steering vector for layer: {layer_str}")
+        for layer_idx, layer_str in enumerate(layers, 1):
+            self.logger.info(f"\n{'='*80}")
+            self.logger.info(f"Training steering vector for layer [{layer_idx}/{len(layers)}]: {layer_str}")
+            self.logger.info(f"{'='*80}")
 
             layer_module = self.layer_accessor.get_layer(model, layer_str)
             steering_vec = self._train_steering_vector(
                 model=model,
                 tokenizer=tokenizer,
                 layer_module=layer_module,
+                layer_str=layer_str,
+                layer_idx=layer_idx,
+                total_layers=len(layers),
                 dataset=dataset,
                 batch_size=batch_size,
                 lr=lr,
@@ -173,9 +178,10 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             steering_vectors[layer_str] = steering_vec
 
             self.logger.info(
-                f"Extracted steering vector for '{layer_str}': "
+                f"Completed layer [{layer_idx}/{len(layers)}] '{layer_str}': "
                 f"shape={steering_vec.shape}, norm={steering_vec.norm():.4f}"
             )
+            self.logger.info(f"{'='*80}\n")
 
         self.logger.info(
             f"Successfully extracted {len(steering_vectors)} steering vectors"
@@ -187,6 +193,9 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         model: nn.Module,
         tokenizer: AutoTokenizer,
         layer_module: nn.Module,
+        layer_str: str,
+        layer_idx: int,
+        total_layers: int,
         dataset: List[Dict],
         batch_size: int,
         lr: float,
@@ -245,9 +254,12 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             epoch_loss = 0.0
             num_batches = 0
 
+            # Create a shortened layer name for display (take last part)
+            layer_display = layer_str.split('.')[-1] if '.' in layer_str else layer_str
+
             progress_bar = tqdm(
                 range(0, len(dataset_samples), batch_size),
-                desc=f"Epoch {epoch + 1}/{epochs}",
+                desc=f"Layer [{layer_idx}/{total_layers}] {layer_display} | Epoch {epoch + 1}/{epochs}",
             )
 
             for i in progress_bar:
@@ -286,7 +298,8 @@ class BiPOVectorExtractor(BaseVectorExtractor):
                 gpu_mem_info = f", GPU_mem: {allocated:.2f}/{reserved:.2f}GB"
 
             self.logger.info(
-                f"Epoch {epoch + 1}: Loss={avg_loss:.4f}, Vector_norm={v.norm().item():.4f}{gpu_mem_info}"
+                f"Layer [{layer_idx}/{total_layers}] {layer_display} - "
+                f"Epoch {epoch + 1}/{epochs}: Loss={avg_loss:.4f}, Vector_norm={v.norm().item():.4f}{gpu_mem_info}"
             )
 
         return v.detach().clone()
