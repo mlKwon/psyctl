@@ -1,7 +1,7 @@
 """Steering vector applier for text generation."""
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
 import torch
 from torch import nn
@@ -35,6 +35,7 @@ class SteeringApplier:
         top_p: float = 0.9,
         top_k: int = 50,
         orthogonal: bool = False,
+        verbose: bool = False,
     ) -> str:
         """
         Apply steering vector and generate text.
@@ -51,6 +52,7 @@ class SteeringApplier:
             top_p: Top-p sampling parameter
             top_k: Top-k sampling parameter
             orthogonal: Use orthogonalized addition method
+            verbose: Log full prompt after chat template application
 
         Returns:
             Generated text string
@@ -127,7 +129,10 @@ class SteeringApplier:
 
             # 3. Prepare prompt with chat template
             prompt = self._prepare_prompt(input_text, tokenizer)
-            self.logger.debug(f"Prepared prompt: {prompt[:100]}...")
+            if verbose:
+                self.logger.info(f"Full prompt after chat template:\n{prompt}")
+            else:
+                self.logger.debug(f"Prepared prompt: {prompt[:100]}...")
 
             inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
             prompt_length = inputs.input_ids.shape[1]
@@ -290,3 +295,132 @@ class SteeringApplier:
                 return out
 
         return hook
+
+    def get_steering_applied_model(
+        self,
+        steering_vector_path: Path,
+        model_name: Optional[str] = None,
+        model: Optional[nn.Module] = None,
+        tokenizer: Optional[AutoTokenizer] = None,
+        strength: float = 1.0,
+        prompt_length: int = 0,
+        orthogonal: bool = False,
+    ) -> Tuple[nn.Module, AutoTokenizer]:
+        """
+        Apply steering vector hooks to model and return steered model.
+
+        The returned model has a `remove_steering()` method attached for cleanup.
+        This method is useful when you want to reuse the same model for multiple
+        generations with steering applied.
+
+        Args:
+            steering_vector_path: Path to steering vector file
+            model_name: HuggingFace model identifier (optional if model provided)
+            model: Pre-loaded model (optional if model_name provided)
+            tokenizer: Pre-loaded tokenizer (optional if model_name provided)
+            strength: Steering strength multiplier (default: 1.0)
+            prompt_length: Length of prompt in tokens (0 = apply to all tokens)
+            orthogonal: Use orthogonalized addition method
+
+        Returns:
+            Tuple of (model, tokenizer) where model has remove_steering() method
+
+        Raises:
+            ValueError: If neither model_name nor model is provided, or both are provided
+            ValueError: If model is provided without tokenizer
+            FileNotFoundError: If steering vector file does not exist
+
+        Examples:
+            >>> applier = SteeringApplier()
+            >>> model, tokenizer = applier.get_steering_applied_model(
+            ...     model_name="google/gemma-3-270m-it",
+            ...     steering_vector_path=Path("./vector.safetensors"),
+            ...     strength=2.0,
+            ...     orthogonal=True
+            ... )
+            >>>
+            >>> # Use multiple times
+            >>> for prompt in ["Hello", "How are you?"]:
+            ...     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+            ...     outputs = model.generate(**inputs, max_new_tokens=50, use_cache=False)
+            ...     print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+            >>>
+            >>> # Clean up when done
+            >>> model.remove_steering()
+        """
+        # Validate model parameters
+        if model is not None and model_name is not None:
+            raise ValueError("Cannot provide both 'model' and 'model_name'. Choose one.")
+        if model is None and model_name is None:
+            raise ValueError("Must provide either 'model' or 'model_name'.")
+        if model is not None and tokenizer is None:
+            raise ValueError("Must provide 'tokenizer' when providing 'model'.")
+
+        # Determine model identifier for logging
+        if model_name:
+            model_identifier = model_name
+        else:
+            try:
+                model_identifier = model.config._name_or_path
+            except AttributeError:
+                model_identifier = "unknown"
+
+        self.logger.info(f"Applying steering hooks to model: {model_identifier}")
+        self.logger.info(f"Steering vector path: {steering_vector_path}")
+        self.logger.info(f"Strength: {strength}, Prompt length: {prompt_length}")
+
+        try:
+            # Validate inputs
+            if not steering_vector_path.exists():
+                raise FileNotFoundError(
+                    f"Steering vector file does not exist: {steering_vector_path}"
+                )
+
+            # 1. Load model and tokenizer if not provided
+            if model is None:
+                self.logger.info("Loading model and tokenizer...")
+                model, tokenizer = self.llm_loader.load_model(model_name)
+            else:
+                self.logger.info("Using pre-loaded model")
+
+            # 2. Load steering vectors and metadata
+            self.logger.info("Loading steering vectors...")
+            vectors, metadata = self.vector_store.load_multi_layer(
+                steering_vector_path
+            )
+
+            # 3. Register hooks for each layer
+            self.logger.info(f"Registering hooks for {len(vectors)} layers...")
+            hooks = []
+            for layer_name, steer_vec in vectors.items():
+                layer_module = self._get_layer_module(model, layer_name, metadata)
+                hook = self._make_steering_hook(
+                    prompt_length, steer_vec, strength, orthogonal
+                )
+                handle = layer_module.register_forward_hook(hook)
+                hooks.append(handle)
+                self.logger.debug(f"Registered hook on: {layer_name}")
+
+            # 4. Store handles in model and add cleanup method
+            model._steering_handles = hooks
+
+            def remove_steering():
+                """Remove all steering hooks from this model."""
+                if hasattr(model, "_steering_handles"):
+                    for handle in model._steering_handles:
+                        handle.remove()
+                    del model._steering_handles
+                    self.logger.info("Removed all steering hooks")
+                else:
+                    self.logger.warning("No steering hooks found on model")
+
+            model.remove_steering = remove_steering
+
+            self.logger.success(
+                f"Successfully applied steering hooks to {len(vectors)} layers"
+            )
+            return model, tokenizer
+
+        except Exception as e:
+            self.logger.error(f"Failed to apply steering hooks: {e}")
+            raise
