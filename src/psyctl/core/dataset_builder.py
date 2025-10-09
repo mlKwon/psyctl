@@ -1,26 +1,26 @@
 """
 Dataset Builder for Personality Steering Vector Extraction
 
-This module implements the DatasetBuilder class which creates CAA (Contrastive Activation Addition)
-datasets for personality steering vector extraction. The CAA method compares responses from
-models with different personality traits to identify steering vectors that can modify model behavior.
+This module implements the DatasetBuilder class which creates steering datasets
+for personality steering vector extraction. These datasets are compatible with multiple
+extraction methods including CAA (Contrastive Activation Addition) and BiPO.
 
 Key Concepts:
-- CAA (Contrastive Activation Addition): A method to extract steering vectors by comparing
-  model responses with different personality traits
+- Steering Dataset: Raw data (situation, character, positive/neutral responses) for training
+- CAA: Contrastive Activation Addition extraction method
+- BiPO: Bi-Directional Preference Optimization extraction method
 - Personality Steering: Modifying LLM behavior to exhibit specific personality characteristics
-- Contrastive Learning: Learning from pairs of positive/negative examples
 
 Workflow:
 1. Load a base model and tokenizer
 2. Load conversation dataset (allenai/soda)
 3. Generate personality-specific prompts using P2 class
 4. Create contrastive pairs (positive vs neutral personality)
-5. Save as JSONL format for training
+5. Save raw components in JSONL format
 
 Example Usage:
     builder = DatasetBuilder()
-    builder.build_caa_dataset(
+    builder.build_steer_dataset(
         model="meta-llama/Llama-3.2-3B-Instruct",
         personality="Extroversion",
         output_dir=Path("./dataset"),
@@ -28,7 +28,8 @@ Example Usage:
     )
 
 References:
-- CAA Paper: https://arxiv.org/abs/2206.07550
+- CAA Paper: https://arxiv.org/abs/2312.06681
+- BiPO Paper: https://arxiv.org/abs/2406.00045
 - SoDA Dataset: https://huggingface.co/datasets/allenai/soda
 """
 
@@ -57,10 +58,10 @@ PSYCTL_LOGO_URL = "https://cdn.caveduck.io/cdn-cgi/image/anim=false,dpr=1.5,f=au
 
 class DatasetBuilder:
     """
-    Build CAA datasets for personality steering vector extraction.
+    Build steering datasets for personality steering vector extraction.
 
-    This class implements the Contrastive Alignment Analysis (CAA) dataset generation
-    process. It creates training data by comparing model responses with different
+    This class implements steering dataset generation for multiple extraction methods
+    (CAA, BiPO, etc.). It creates training data by comparing model responses with different
     personality traits, enabling the extraction of steering vectors that can modify
     model behavior to exhibit specific personality characteristics.
 
@@ -74,7 +75,7 @@ class DatasetBuilder:
         personality (str): Target personality trait for steering
 
     Methods:
-        build_caa_dataset: Main method to build CAA dataset
+        build_steer_dataset: Main method to build steering dataset
         _load_model: Load model and tokenizer
         _load_dataset: Load conversation dataset
         _generate_sample_context: Generate conversation contexts
@@ -177,7 +178,7 @@ class DatasetBuilder:
         self.top_p = top_p
         self.max_tokens = max_tokens
 
-        self.logger.info(f"Building CAA dataset for model: {model}")
+        self.logger.info(f"Building steering dataset for model: {model}")
         self.logger.info(f"Personality traits: {personality}")
         self.logger.info(f"Output directory: {output_dir}")
         self.logger.info(f"Dataset: {dataset_name}")
@@ -206,10 +207,10 @@ class DatasetBuilder:
             # 2. Load dataset
             self._load_dataset(dataset_name)
 
-            # 3. Build CAA dataset
+            # 3. Build steering dataset
             output_file = self._build_caa_dataset(output_dir, limit_samples)
 
-            self.logger.info(f"Finished building CAA dataset")
+            self.logger.info(f"Finished building steering dataset")
 
             # Log OpenRouter usage if applicable
             if self.use_openrouter:
@@ -849,9 +850,9 @@ class DatasetBuilder:
 
     def _build_caa_dataset(self, output_dir: Path, limit_samples: int) -> Path:
         """
-        Core CAA dataset building logic with batch processing.
+        Core steering dataset building logic with batch processing.
 
-        This is the main implementation of the CAA dataset generation process.
+        This is the main implementation of the steering dataset generation process.
         It processes multiple contexts in batches, generates personality-specific
         responses using P2 prompts, creates contrastive pairs, and saves them
         to a timestamped JSONL file with checkpoint support.
@@ -868,7 +869,7 @@ class DatasetBuilder:
             for resuming interrupted runs.
         """
 
-        self.logger.info(f"Building CAA dataset with batch processing...")
+        self.logger.info(f"Building steering dataset with batch processing...")
         self.logger.info(f"Limit samples: {limit_samples}")
         self.logger.info(f"Output directory: {output_dir}")
         self.logger.info(f"Batch size: {INFERENCE_BATCH_SIZE}")
@@ -944,7 +945,7 @@ class DatasetBuilder:
                 neutral_template, num_generated
             )
 
-        self.logger.info(f"Finished building CAA dataset. Total samples: {num_generated}")
+        self.logger.info(f"Finished building steering dataset. Total samples: {num_generated}")
         return num_generated
 
 
@@ -1170,12 +1171,12 @@ psyctl steering \\
         jsonl_file: Path,
         repo_id: str,
         private: bool = False,
-        commit_message: str = "Upload CAA dataset via PSYCTL",
+        commit_message: str = "Upload steering dataset via PSYCTL",
         token: Optional[str] = None,
         license: Optional[str] = None
     ) -> str:
         """
-        Upload CAA dataset to HuggingFace Hub with PSYCTL branding.
+        Upload steering dataset to HuggingFace Hub with PSYCTL branding.
 
         Args:
             jsonl_file: Path to JSONL dataset file
@@ -1288,7 +1289,7 @@ psyctl steering \\
 # Example usage and testing
 if __name__ == "__main__":
     """
-    Example usage of DatasetBuilder for CAA dataset generation.
+    Example usage of DatasetBuilder for steering dataset generation.
 
     This demonstrates how to use the DatasetBuilder class to create
     personality steering datasets for different personality traits.

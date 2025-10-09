@@ -22,7 +22,7 @@ Base conversation datasets used to generate steering datasets. These contain soc
 
 ## 🎯 Steering Datasets
 
-Datasets for extracting personality steering vectors using the CAA (Contrastive Activation Addition) method. Each sample contains personality-specific (positive) and neutral responses to the same situation.
+Datasets for extracting personality steering vectors using methods like CAA (Contrastive Activation Addition) and BiPO. Each sample contains personality-specific (positive) and neutral responses to the same situation.
 
 **Format Example**:
 ```json
@@ -51,7 +51,7 @@ Datasets for extracting personality steering vectors using the CAA (Contrastive 
 
 **Example**:
 ```bash
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "your-key" \
   --openrouter-model "moonshotai/kimi-k2-0905" \
   --personality "Your Trait" \

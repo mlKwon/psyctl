@@ -249,7 +249,7 @@ hook_manager.remove_all_hooks()
 
 ### Dataset Format
 
-CAA datasets are JSONL files with this structure:
+steering datasets are JSONL files with this structure:
 
 ```json
 {

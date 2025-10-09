@@ -15,7 +15,7 @@ This document describes how to extract steering vectors from language models usi
 
 Steering vectors are learned representations that can modify language model behavior to exhibit specific personality traits or characteristics. The extraction process involves:
 
-1. Loading a CAA (Contrastive Activation Addition) dataset with positive/neutral prompt pairs
+1. Loading a steering dataset with positive/neutral prompt pairs
 2. Running inference on the model to collect internal activations
 3. Computing steering vectors from the activation differences
 4. Saving vectors in safetensors format for later use
@@ -63,7 +63,7 @@ psyctl extract.steering \
 - `--model`: Hugging Face model identifier (required)
 - `--layer`: Single layer path (can be repeated for multi-layer extraction)
 - `--layers`: Comma-separated list of layer paths
-- `--dataset`: Path to CAA dataset directory containing JSONL file (required)
+- `--dataset`: Path to steering dataset directory containing JSONL file (required)
 - `--output`: Output path for safetensors file (required)
 - `--batch-size`: Batch size for inference (default: from config)
 - `--normalize`: Normalize steering vectors to unit length (optional)
@@ -342,7 +342,7 @@ Common layer targets:
 The CAA extraction method computes steering vectors as the mean difference between positive and neutral activations:
 
 **Algorithm:**
-1. Load CAA dataset containing positive/neutral prompt pairs
+1. Load steering dataset containing positive/neutral prompt pairs
 2. For each layer:
    - Collect activations from positive prompts
    - Collect activations from neutral prompts
@@ -365,7 +365,7 @@ psyctl extract.steering \
 BiPO is an optimization-based method that learns steering vectors through preference learning:
 
 **Algorithm:**
-1. Load CAA dataset containing positive/neutral prompt pairs
+1. Load steering dataset containing positive/neutral prompt pairs
 2. Initialize learnable steering parameters for each layer
 3. For each training epoch:
    - Apply steering to model activations
@@ -411,7 +411,7 @@ PSYCTL uses a clean dataset format that stores raw components (situation, charac
 **BiPO Training:**
 ```bash
 # Generate dataset
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --model "google/gemma-2-2b-it" \
   --personality "Extroversion" \
   --output "./dataset/ext"

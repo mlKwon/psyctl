@@ -13,7 +13,7 @@ This document describes how to use OpenRouter API with PSYCTL for dataset genera
 
 ## Overview
 
-OpenRouter integration allows you to generate CAA datasets using cloud-based LLMs without downloading models locally. This is particularly useful when:
+OpenRouter integration allows you to generate steering datasets using cloud-based LLMs without downloading models locally. This is particularly useful when:
 
 - You don't have GPU resources available
 - You want to use large models (70B+, 405B) without local infrastructure
@@ -47,7 +47,7 @@ export OPENROUTER_API_KEY="sk-or-v1-xxxx"
 ### 3. Run Dataset Generation
 
 ```bash
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "sk-or-v1-xxxx" \
   --personality "Extroversion" \
   --output "./results/openrouter" \
@@ -61,7 +61,7 @@ psyctl dataset.build.caa \
 Generate dataset using OpenRouter with default settings:
 
 ```bash
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "sk-or-v1-xxxx" \
   --personality "Extroversion" \
   --output "./results/extroversion"
@@ -72,7 +72,7 @@ psyctl dataset.build.caa \
 Use a specific OpenRouter model:
 
 ```bash
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "sk-or-v1-xxxx" \
   --openrouter-model "meta-llama/llama-3.1-405b-instruct" \
   --personality "Machiavellianism" \
@@ -84,7 +84,7 @@ psyctl dataset.build.caa \
 Speed up generation with multiple workers:
 
 ```bash
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "sk-or-v1-xxxx" \
   --openrouter-max-workers 4 \
   --personality "Extroversion" \
@@ -97,7 +97,7 @@ psyctl dataset.build.caa \
 If `OPENROUTER_API_KEY` is set in environment:
 
 ```bash
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key $env:OPENROUTER_API_KEY \
   --personality "Extroversion" \
   --output "./results/extroversion"
@@ -349,7 +349,7 @@ OpenRouter API request timeout
 
 ### Example 1: Quick Test
 ```bash
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "sk-or-v1-xxxx" \
   --personality "Extroversion" \
   --output "./results/test" \
@@ -358,7 +358,7 @@ psyctl dataset.build.caa \
 
 ### Example 2: Production Dataset
 ```bash
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "sk-or-v1-xxxx" \
   --openrouter-model "qwen/qwen3-next-80b-a3b-instruct" \
   --openrouter-max-workers 4 \
@@ -369,7 +369,7 @@ psyctl dataset.build.caa \
 
 ### Example 3: High-Speed Generation
 ```bash
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "sk-or-v1-xxxx" \
   --openrouter-model "google/gemini-2.5-flash-preview-09-2025" \
   --openrouter-max-workers 8 \
@@ -381,7 +381,7 @@ psyctl dataset.build.caa \
 ### Example 4: Multiple Personalities
 ```bash
 # Extroversion
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "sk-or-v1-xxxx" \
   --openrouter-max-workers 4 \
   --personality "Extroversion" \
@@ -389,7 +389,7 @@ psyctl dataset.build.caa \
   --limit-samples 1000
 
 # Introversion
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --openrouter-api-key "sk-or-v1-xxxx" \
   --openrouter-max-workers 4 \
   --personality "Introversion" \

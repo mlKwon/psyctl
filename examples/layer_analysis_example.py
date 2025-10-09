@@ -49,7 +49,7 @@ console.print("=" * 70)
 if not DATASET_PATH.exists():
     console.print(f"\n[red]Error: Dataset not found at {DATASET_PATH}[/red]")
     console.print("\n[yellow]Please run the following command first:[/yellow]")
-    console.print("  psyctl dataset.build.caa \\")
+    console.print("  psyctl dataset.build.steer \\")
     console.print(f"    --model \"{MODEL_NAME}\" \\")
     console.print("    --personality \"Extroversion\" \\")
     console.print(f"    --output \"{DATASET_PATH.parent}\" \\")

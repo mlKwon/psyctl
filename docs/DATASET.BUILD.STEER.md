@@ -154,13 +154,6 @@ Each line in the dataset file contains:
 - `positive`: Full text of the positive personality answer
 - `neutral`: Full text of the neutral personality answer
 
-**Key Benefits:**
-- ✅ **Clean data structure**: No template-generated text in dataset
-- ✅ **Smaller file size**: ~40% reduction compared to old versions
-- ✅ **Flexible formatting**: Prompts built at inference time
-- ✅ **Better maintainability**: Raw components easier to inspect and modify
-- ✅ **Paper alignment**: Directly stores answer texts as in BiPO paper
-
 ### Checkpoint Format
 
 The checkpoint file contains:
@@ -177,81 +170,29 @@ The checkpoint file contains:
 
 ### Batch Processing
 
-The dataset builder uses batch processing for improved GPU utilization:
+The dataset builder uses batch processing (default: 16). Adjust based on GPU memory:
 
-**Configure batch size:**
-```powershell
-# Windows
-$env:PSYCTL_INFERENCE_BATCH_SIZE = "32"
-
-# Linux/macOS
-export PSYCTL_INFERENCE_BATCH_SIZE="32"
+```bash
+export PSYCTL_INFERENCE_BATCH_SIZE="32"  # Linux/macOS
+$env:PSYCTL_INFERENCE_BATCH_SIZE = "32"  # Windows
 ```
 
 **Recommended batch sizes:**
-- High-end GPUs (24GB+ VRAM): 32-64
-- Mid-range GPUs (8-16GB VRAM): 16-32
-- Low-end GPUs (4-8GB VRAM): 8-16
-- CPU: 4-8
+- High-end GPU (24GB+): 32-64
+- Mid-range GPU (8-16GB): 16-32
+- Low-end GPU (4-8GB): 8-16
 
+### Checkpoint and Resume
 
-## Checkpoint and Resume
-
-### Automatic Checkpointing
-
-The dataset builder automatically saves checkpoints during generation:
-
-**Default behavior:**
-- Checkpoint saved every 100 samples (configurable)
-- Checkpoint file: `caa_dataset_{timestamp}.checkpoint.json`
-- Output file: `caa_dataset_{timestamp}.jsonl`
+Checkpoints are saved every 100 samples by default. If interrupted, simply re-run the same command to resume automatically.
 
 **Configure checkpoint interval:**
-```powershell
-# Save checkpoint every 50 samples
-$env:PSYCTL_CHECKPOINT_INTERVAL = "50"
-
-# Save checkpoint every 200 samples
-$env:PSYCTL_CHECKPOINT_INTERVAL = "200"
-```
-
-### Resume from Checkpoint
-
-If dataset generation is interrupted, simply re-run the same command:
-
 ```bash
-# Original command
-psyctl dataset.build.steer \
-  --model "google/gemma-2-2b-it" \
-  --personality "Extroversion" \
-  --output "./dataset/extroversion"
-
-# After interruption, run the same command
-# It will automatically detect and resume from the latest checkpoint
+export PSYCTL_CHECKPOINT_INTERVAL="50"   # Save more frequently
+$env:PSYCTL_CHECKPOINT_INTERVAL = "200"  # Save less frequently (Windows)
 ```
 
-**Resume behavior:**
-- Automatically detects existing checkpoints
-- Loads progress from latest checkpoint
-- Continues from last saved sample
-- Preserves all previous work
-
-### Manual Checkpoint Management
-
-**Check checkpoint status:**
-```powershell
-# Windows
-dir ./dataset/extroversion/*.checkpoint.json
-
-# Linux/macOS
-ls ./dataset/extroversion/*.checkpoint.json
-```
-
-**View checkpoint contents:**
-```powershell
-# Check number of samples generated
-type ./dataset/extroversion/caa_dataset_*.checkpoint.json
-```
+Checkpoint files (`*.checkpoint.json`) are stored alongside the dataset JSONL file.
 
 ## Uploading to HuggingFace Hub
 
