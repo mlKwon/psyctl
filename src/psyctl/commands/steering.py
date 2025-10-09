@@ -8,7 +8,7 @@ from rich.console import Console
 from psyctl.core.logger import get_logger
 from psyctl.core.steering_applier import SteeringApplier
 
-console = Console()
+console = Console(force_terminal=True, legacy_windows=False)
 logger = get_logger("steering")
 
 
@@ -130,10 +130,17 @@ def apply(
         logger.info("Text generation completed")
         console.print("[green]Generated text:[/green]")
         console.print()
-        console.print(result)
+        # Encode result to handle unicode characters properly
+        try:
+            console.print(result)
+        except UnicodeEncodeError:
+            # Fallback: replace problematic characters
+            safe_result = result.encode('utf-8', errors='replace').decode('utf-8')
+            console.print(safe_result)
         console.print()
 
     except Exception as e:
         logger.error(f"Failed to apply steering vector: {e}")
-        console.print(f"[red]Error: {e}[/red]")
+        error_msg = str(e).encode('utf-8', errors='replace').decode('utf-8')
+        console.print(f"[red]Error: {error_msg}[/red]")
         raise

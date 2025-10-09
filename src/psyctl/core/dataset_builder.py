@@ -115,7 +115,7 @@ class DatasetBuilder:
         self.checkpoint_data = []
 
         # Generation parameters (will be set in build_caa_dataset)
-        self.temperature = 0
+        self.temperature = 0.01
         self.top_k = None
         self.top_p = None
         self.max_tokens = 100
@@ -136,7 +136,7 @@ class DatasetBuilder:
 
     def build_steer_dataset(
         self, model: str, personality: str, output_dir: Path, limit_samples: int, dataset_name: str = "allenai/soda",
-        temperature: float = 0, top_k: int = None, top_p: float = None, max_tokens: int = 100
+        temperature: float = 0.01, top_k: int = None, top_p: float = None, max_tokens: int = 100
     ) -> Path:
         """
         Build steering dataset for given personality traits.

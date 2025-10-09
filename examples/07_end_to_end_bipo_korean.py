@@ -1,15 +1,21 @@
 """
-PSYCTL End-to-End Example: Korean Rudeness Personality Steering
+PSYCTL End-to-End Example: BiPO Method with Korean Templates
 
-This script demonstrates the complete workflow of PSYCTL:
-1. Generate CAA dataset using OpenRouter API with Korean dialogue data
+This script demonstrates the complete BiPO workflow of PSYCTL:
+1. Generate steering dataset using OpenRouter API with Korean dialogue data
+   (OR skip dataset generation and use pre-uploaded HuggingFace dataset)
 2. Extract BiPO steering vector from a local model
 3. Apply steering to test the personality transformation
 
 Requirements:
-- .env file with HF_TOKEN and OPENROUTER_API_KEY
-- Internet connection for OpenRouter API
+- .env file with HF_TOKEN and OPENROUTER_API_KEY (if generating dataset)
+- Internet connection for OpenRouter API (if generating dataset)
 - ~2GB disk space for model cache
+
+Usage:
+  python end_to_end_bipo.py                                    # Full workflow
+  python end_to_end_bipo.py --skip-dataset --dataset-path <HF_DATASET>  # Use uploaded dataset
+  python end_to_end_bipo.py --epochs 20                        # Custom training epochs
 """
 
 import os
@@ -210,62 +216,67 @@ def main():
     logger.info("Initializing SteeringApplier")
     applier = SteeringApplier()
 
-    # Test input
-    test_input = "안녕하세요"
+    # Test inputs (single or multiple based on dataset source)
+    test_inputs = ["안녕하세요", "오늘 날씨가 좋네요", "도움이 필요하신가요?"] if args.skip_dataset else ["안녕하세요"]
 
-    # Generate response WITHOUT steering (using a simple baseline generation)
-    print("Generating response WITHOUT steering...")
-    logger.info("Generating baseline response (no steering)")
-    try:
-        import torch
-        from psyctl.models.llm_loader import LLMLoader
-        loader = LLMLoader()
-        model, tokenizer = loader.load_model(STEERING_MODEL)
+    for test_input in test_inputs:
+        print(f"\n{'='*80}")
+        print(f"Test Input: {test_input}")
+        print(f"{'='*80}")
 
-        # Prepare prompt
-        messages = [{"role": "user", "content": test_input}]
-        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+        # Generate response WITHOUT steering (using a simple baseline generation)
+        print("\nGenerating response WITHOUT steering...")
+        logger.info(f"Generating baseline response for: {test_input}")
+        try:
+            import torch
+            from psyctl.models.llm_loader import LLMLoader
+            loader = LLMLoader()
+            model, tokenizer = loader.load_model(STEERING_MODEL)
 
-        # Generate
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
+            # Prepare prompt
+            messages = [{"role": "user", "content": test_input}]
+            prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+
+            # Generate
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=100,
+                    temperature=0.7,
+                    top_p=0.9,
+                    do_sample=True
+                )
+
+            response_baseline = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+            print(f"[BASELINE] {response_baseline}")
+
+            # Clean up
+            del model, tokenizer
+            torch.cuda.empty_cache() if torch.cuda.is_available() else None
+
+        except Exception as e:
+            logger.error(f"Failed to generate baseline response: {e}")
+            raise
+
+        # Generate response WITH steering
+        print("\nGenerating response WITH steering...")
+        logger.info(f"Generating steered response for: {test_input}")
+        try:
+            response_steered = applier.apply_steering(
+                model_name=STEERING_MODEL,
+                steering_vector_path=STEERING_VECTOR_PATH,
+                input_text=test_input,
                 max_new_tokens=100,
-                temperature=0.7,
-                top_p=0.9,
-                do_sample=True
+                strength=1.5,  # Higher strength for clear effect
+                temperature=0.7
             )
+            print(f"[STEERED] {response_steered}")
+        except Exception as e:
+            logger.error(f"Failed to generate steered response: {e}")
+            raise
 
-        response_baseline = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        print(f"\n[BASELINE] Input: {test_input}")
-        print(f"[BASELINE] Response: {response_baseline}")
-
-        # Clean up
-        del model, tokenizer
-        torch.cuda.empty_cache() if torch.cuda.is_available() else None
-
-    except Exception as e:
-        logger.error(f"Failed to generate baseline response: {e}")
-        raise
-
-    # Generate response WITH steering
-    print("\nGenerating response WITH steering...")
-    logger.info("Generating steered response (rudeness personality)")
-    try:
-        response_steered = applier.apply_steering(
-            model_name=STEERING_MODEL,
-            steering_vector_path=STEERING_VECTOR_PATH,
-            input_text=test_input,
-            max_new_tokens=100,
-            strength=1.5,  # Higher strength for clear effect
-            temperature=0.7
-        )
-        print(f"\n[STEERED] Input: {test_input}")
-        print(f"[STEERED] Response: {response_steered}")
-    except Exception as e:
-        logger.error(f"Failed to generate steered response: {e}")
-        raise
+        print()
 
     # =========================================================================
     # Summary
@@ -275,9 +286,9 @@ def main():
     print("="*80)
     print(f"[SUCCESS] CAA Dataset: {dataset_file}")
     print(f"[SUCCESS] Steering Vector: {STEERING_VECTOR_PATH}")
-    print(f"\n[SUCCESS] Baseline Response: {response_baseline}")
-    print(f"[SUCCESS] Steered Response: {response_steered}")
-    print("\nEnd-to-end workflow completed successfully!")
+    print(f"[SUCCESS] Training Epochs: {args.epochs}")
+    print(f"[SUCCESS] Steering Strength: 1.5")
+    print("\nEnd-to-end BiPO workflow completed successfully!")
     print("="*80)
 
     logger.info("End-to-end workflow completed successfully")

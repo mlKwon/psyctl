@@ -108,7 +108,7 @@ class P2:
             attention_mask=tokenized["attention_mask"],
             max_new_tokens=100,
             do_sample=True,
-            temperature=0,
+            temperature=0.01,
             pad_token_id=self.tokenizer.pad_token_id,
         )
         len_input = tokenized["input_ids"][0].shape[0]
