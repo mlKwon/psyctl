@@ -41,12 +41,6 @@ logger = get_logger("dataset")
     help="OpenRouter API key (format: sk-or-xxxx). If provided, uses OpenRouter instead of local model.",
 )
 @click.option(
-    "--openrouter-model",
-    required=False,
-    default="qwen/qwen3-next-80b-a3b-instruct",
-    help="OpenRouter model identifier (default: qwen/qwen3-next-80b-a3b-instruct)",
-)
-@click.option(
     "--openrouter-max-workers",
     required=False,
     type=int,
@@ -66,7 +60,6 @@ def build_steer(
     limit_samples: int,
     dataset: str,
     openrouter_api_key: str,
-    openrouter_model: str,
     openrouter_max_workers: int,
     roleplay_prompt_template: str,
 ):
@@ -95,11 +88,13 @@ def build_steer(
     logger.info(f"Limit samples: {limit_samples}")
 
     console.print(f"[blue]Building steering dataset...[/blue]")
+
     if use_openrouter:
-        console.print(f"OpenRouter Model: {openrouter_model}")
+        console.print(f"OpenRouter Model: {model}")
         console.print(f"OpenRouter Workers: {openrouter_max_workers}")
     else:
         console.print(f"Local Model: {model}")
+
     console.print(f"Personality: {personality}")
     console.print(f"Output: {output}")
     console.print(f"Dataset: {dataset}")
@@ -112,9 +107,7 @@ def build_steer(
             openrouter_max_workers=openrouter_max_workers,
             roleplay_prompt_template=roleplay_prompt_template,
         )
-        # Use openrouter_model if using OpenRouter, otherwise use the local model
-        model_to_use = openrouter_model if use_openrouter else model
-        output_file = builder.build_steer_dataset(model_to_use, personality, Path(output), limit_samples, dataset)
+        output_file = builder.build_steer_dataset(model, personality, Path(output), limit_samples, dataset)
 
         logger.info(f"Dataset built successfully: {output_file}")
         console.print(f"[green]Dataset built successfully: {output_file}[/green]")
