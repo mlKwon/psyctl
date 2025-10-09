@@ -264,7 +264,7 @@ class LayerAnalyzer:
         # Process positive samples in batches
         num_batches = (len(dataset) + batch_size - 1) // batch_size
         for i in tqdm(range(0, len(dataset), batch_size), total=num_batches, desc="Positive batches", leave=False):
-            batch = dataset[i:i + batch_size]
+            batch = [dataset[j] for j in range(i, min(i + batch_size, len(dataset)))]
             prompts = []
             for item in batch:
                 situation = item.get("situation", item.get("question", ""))
@@ -308,7 +308,7 @@ class LayerAnalyzer:
 
         # Process neutral samples in batches
         for i in tqdm(range(0, len(dataset), batch_size), total=num_batches, desc="Neutral batches", leave=False):
-            batch = dataset[i:i + batch_size]
+            batch = [dataset[j] for j in range(i, min(i + batch_size, len(dataset)))]
             prompts = []
             for item in batch:
                 situation = item.get("situation", item.get("question", ""))
