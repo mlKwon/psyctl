@@ -2,14 +2,14 @@
 PSYCTL End-to-End Simple Example: Basic Personality Steering
 
 This is the simplest example demonstrating the complete PSYCTL workflow:
-1. Generate CAA dataset using OpenRouter API (default templates, English)
-2. Extract CAA steering vector (fast mean contrastive method)
-3. Apply steering to test the personality transformation
+1. Generate steering dataset using OpenRouter API (default templates, English)
+2. Extract steering vector using mean_diff method (Mean Difference from CAA paper)
+3. Apply steering using CAA (Contrastive Activation Addition)
 
 Simplifications:
 - Uses default English templates (no customization)
 - Uses allenai/soda dataset (default)
-- Uses CAA method (faster than BiPO)
+- Uses mean_diff extraction method (faster than BiPO)
 - Simple personality: "Extroversion"
 
 Requirements:
@@ -69,7 +69,7 @@ def main():
     print("This example uses:")
     print("- Default English templates")
     print("- allenai/soda dataset")
-    print("- CAA extraction method (fast)")
+    print("- mean_diff extraction method")
     print("- Extroversion personality")
     print()
 
@@ -77,7 +77,7 @@ def main():
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     # =========================================================================
-    # STEP 1: Generate CAA Dataset (Default Settings)
+    # STEP 1: Generate Steering Dataset (Default Settings)
     # =========================================================================
     if args.skip_dataset:
         if not args.dataset_path:
@@ -92,7 +92,7 @@ def main():
         print()
     else:
         print("\n" + "="*80)
-        print("STEP 1: Generating CAA Dataset")
+        print("STEP 1: Generating Steering Dataset")
         print("="*80)
         print(f"Model: {DATASET_MODEL}")
         print(f"Personality: {PERSONALITY}")
@@ -108,8 +108,8 @@ def main():
             openrouter_max_workers=2
         )
 
-        # Build CAA dataset with all defaults
-        logger.info("Starting CAA dataset generation with default settings")
+        # Build steering dataset with all defaults
+        logger.info("Starting steering dataset generation with default settings")
         try:
             dataset_file = dataset_builder.build_caa_dataset(
                 model=DATASET_MODEL,
@@ -120,8 +120,8 @@ def main():
                 temperature=0.7,
                 max_tokens=100
             )
-            print(f"\n[SUCCESS] CAA dataset generated: {dataset_file}")
-            logger.info(f"CAA dataset generated successfully: {dataset_file}")
+            print(f"\n[SUCCESS] Steering dataset generated: {dataset_file}")
+            logger.info(f"Steering dataset generated successfully: {dataset_file}")
 
             # Display sample data from generated dataset
             print("\n" + "-"*80)
@@ -141,25 +141,25 @@ def main():
             print("-"*80)
 
         except Exception as e:
-            logger.error(f"Failed to generate CAA dataset: {e}")
+            logger.error(f"Failed to generate steering dataset: {e}")
             raise
 
     # =========================================================================
-    # STEP 2: Extract CAA Steering Vector (Fast Method)
+    # STEP 2: Extract Steering Vector using Mean Diff Method
     # =========================================================================
     print("\n" + "="*80)
     print("STEP 2: Extracting Steering Vector")
     print("="*80)
     print(f"Model: {STEERING_MODEL}")
     print(f"Dataset: {dataset_file}")
-    print(f"Method: CAA (Mean Contrastive - Fast)")
+    print(f"Method: mean_diff (Mean Difference)")
     print()
 
     logger.info("Initializing SteeringExtractor")
     extractor = SteeringExtractor()
 
-    # Extract steering vector using CAA method
-    logger.info("Starting CAA steering vector extraction")
+    # Extract steering vector using mean_diff method
+    logger.info("Starting steering vector extraction using mean_diff method")
     try:
         # Use middle layer for gemma-3-270m-it (18 layers total)
         target_layers = ["model.layers.9.mlp.down_proj"]
@@ -169,7 +169,7 @@ def main():
             layers=target_layers,
             dataset_path=dataset_file,
             output_path=STEERING_VECTOR_PATH,
-            method="mean_contrastive",
+            method="mean_diff",
             normalize=True
         )
         print(f"\n[SUCCESS] Steering vector extracted: {STEERING_VECTOR_PATH}")

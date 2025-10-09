@@ -9,7 +9,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from psyctl.config import INFERENCE_BATCH_SIZE
-from psyctl.core.caa_dataset_loader import CAADatasetLoader
+from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 from psyctl.core.extractors.base import BaseVectorExtractor
 from psyctl.core.hook_manager import ActivationHookManager
 from psyctl.core.layer_accessor import LayerAccessor
@@ -20,9 +20,9 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
     """
     Extract steering vectors using mean difference of contrastive activations.
 
-    This extractor implements the CAA (Contrastive Activation Addition) method
-    by computing the difference between mean activations from positive and
-    neutral personality prompts.
+    This extractor computes steering vectors by taking the mean difference
+    between activations from positive and neutral personality prompts.
+    The extracted vectors are later applied using CAA (Contrastive Activation Addition).
 
     Algorithm:
     1. Collect activations from positive prompts → compute mean
@@ -31,7 +31,7 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
 
     Attributes:
         hook_manager: Manager for forward hooks
-        dataset_loader: Loader for CAA dataset
+        dataset_loader: Loader for steering dataset
         layer_accessor: Accessor for dynamic layer retrieval
         logger: Logger instance
     """
@@ -39,7 +39,7 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
     def __init__(self):
         """Initialize MeanContrastiveActivationVectorExtractor."""
         self.hook_manager = ActivationHookManager()
-        self.dataset_loader = CAADatasetLoader()
+        self.dataset_loader = SteerDatasetLoader()
         self.layer_accessor = LayerAccessor()
         self.logger = get_logger("mcav_extractor")
 
@@ -61,7 +61,7 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
             model: Loaded language model
             tokenizer: Model tokenizer
             layers: List of layer paths (e.g., ["model.layers[13].mlp.down_proj"])
-            dataset_path: Path to CAA dataset or HuggingFace dataset name (optional if dataset provided)
+            dataset_path: Path to steering dataset or HuggingFace dataset name (optional if dataset provided)
             dataset: Pre-loaded dataset as list of dicts (optional if dataset_path provided)
             batch_size: Batch size for inference (default: from config)
             normalize: Whether to normalize vectors to unit length

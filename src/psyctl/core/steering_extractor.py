@@ -21,7 +21,7 @@ class SteeringExtractor:
     """Extract steering vectors using various methods."""
 
     EXTRACTORS = {
-        "mean_contrastive": MeanContrastiveActivationVectorExtractor,
+        "mean_diff": MeanContrastiveActivationVectorExtractor,
         "bipo": BiPOVectorExtractor,
     }
 
@@ -41,7 +41,7 @@ class SteeringExtractor:
         dataset: Optional[List[dict]] = None,
         batch_size: Optional[int] = None,
         normalize: bool = False,
-        method: str = "mean_contrastive",
+        method: str = "mean_diff",
         **method_params,
     ) -> Dict[str, torch.Tensor]:
         """
@@ -53,11 +53,11 @@ class SteeringExtractor:
             model_name: Hugging Face model identifier (optional if model provided)
             model: Pre-loaded model (optional if model_name provided)
             tokenizer: Pre-loaded tokenizer (optional if model_name provided)
-            dataset_path: Path to CAA dataset or HuggingFace dataset name (optional if dataset provided)
+            dataset_path: Path to steering dataset or HuggingFace dataset name (optional if dataset provided)
             dataset: Pre-loaded dataset as list of dicts (optional if dataset_path provided)
             batch_size: Batch size for inference (optional)
             normalize: Whether to normalize vectors to unit length
-            method: Extraction method name (default: "mean_contrastive")
+            method: Extraction method name (default: "mean_diff")
             **method_params: Additional method-specific parameters
 
         Returns:
@@ -73,7 +73,7 @@ class SteeringExtractor:
             >>> vectors = extractor.extract_steering_vector(
             ...     model_name="meta-llama/Llama-3.2-3B-Instruct",
             ...     layers=["model.layers[13].mlp.down_proj"],
-            ...     dataset_path=Path("./dataset/caa"),
+            ...     dataset_path=Path("./dataset/steering"),
             ...     output_path=Path("./out.safetensors")
             ... )
 
@@ -85,8 +85,9 @@ class SteeringExtractor:
             ...     model=model,
             ...     tokenizer=tokenizer,
             ...     layers=["model.layers.13.mlp.down_proj"],
-            ...     dataset_path=Path("./dataset/caa"),
-            ...     output_path=Path("./out.safetensors")
+            ...     dataset_path=Path("./dataset/steering"),
+            ...     output_path=Path("./out.safetensors"),
+            ...     method="mean_diff"
             ... )
 
             >>> # Example 3: Using pre-loaded dataset
@@ -208,9 +209,9 @@ class SteeringExtractor:
                 metadata["dataset_samples"] = len(dataset)
             elif dataset_path:
                 try:
-                    from psyctl.core.caa_dataset_loader import CAADatasetLoader
+                    from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 
-                    loader = CAADatasetLoader()
+                    loader = SteerDatasetLoader()
                     dataset_info = loader.get_dataset_info(dataset_path)
                     metadata["dataset_samples"] = dataset_info["num_samples"]
                 except Exception as e:

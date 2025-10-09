@@ -88,7 +88,7 @@ vectors = extractor.extract_steering_vector(
     dataset_path=Path("./results/caa_dataset_20251007_160523.jsonl"),
     output_path=Path("./results/bipo_steering.safetensors"),
     normalize=False,
-    method="mean_contrastive"
+    method="mean_diff"
 )
 
 # vectors is a dict: {"model.layers.13.mlp.down_proj": torch.Tensor}
@@ -118,7 +118,7 @@ vectors = extractor.extract_steering_vector(
     layers=["model.layers.13.mlp.down_proj"],
     dataset_path=Path("./results/caa_dataset.jsonl"),
     output_path=Path("./results/steering.safetensors"),
-    method="mean_contrastive"
+    method="mean_diff"
 )
 ```
 
@@ -151,7 +151,7 @@ vectors = extractor.extract_steering_vector(
     layers=["model.layers.13.mlp.down_proj"],
     dataset=dataset,
     output_path=Path("./results/steering.safetensors"),
-    method="mean_contrastive"
+    method="mean_diff"
 )
 ```
 
@@ -188,7 +188,7 @@ vectors = extractor.extract_steering_vector(
     dataset=dataset,
     layers=["model.layers.13.mlp.down_proj"],
     output_path=Path("./results/steering.safetensors"),
-    method="mean_contrastive"
+    method="mean_diff"
 )
 ```
 
@@ -237,7 +237,7 @@ vectors = extractor.extract_steering_vector(
     output_path=Path("./results/multi_layer_steering.safetensors"),
     batch_size=16,
     normalize=True,
-    method="mean_contrastive"
+    method="mean_diff"
 )
 
 # Analyze extracted vectors
@@ -303,7 +303,7 @@ vectors = extractor.extract_steering_vector(
     output_path=Path("./results/extroversion_steering.safetensors"),
     batch_size=16,
     normalize=False,
-    method="mean_contrastive"
+    method="mean_diff"
 )
 
 # 2. Verify extraction
@@ -337,9 +337,10 @@ Common layer targets:
 
 ## Extraction Methods
 
-### MeanContrastiveActivationVector (CAA)
+### Mean Difference (mean_diff)
 
-The CAA extraction method computes steering vectors as the mean difference between positive and neutral activations:
+The mean_diff method computes steering vectors as the mean difference between positive and neutral activations.
+This implements the Mean Difference (MD) algorithm from the CAA paper:
 
 **Algorithm:**
 1. Load steering dataset containing positive/neutral prompt pairs
@@ -355,10 +356,11 @@ The CAA extraction method computes steering vectors as the mean difference betwe
 psyctl extract.steering \
   --model "meta-llama/Llama-3.2-3B-Instruct" \
   --layer "model.layers[13].mlp.down_proj" \
-  --dataset "./dataset/caa" \
-  --output "./steering_vector/out.safetensors" \
-  --method mean_contrastive
+  --dataset "./dataset/steering" \
+  --output "./steering_vector/out.safetensors"
 ```
+
+Note: `mean_diff` is the default method, so `--method mean_diff` can be omitted.
 
 ### BiPO (Bi-Directional Preference Optimization)
 
@@ -462,7 +464,7 @@ vectors = extractor.extract_steering_vector(
 
 ### Method Comparison
 
-| Feature | CAA (mean_contrastive) | BiPO |
+| Feature | Mean Diff (mean_diff) | BiPO |
 |---------|------------------------|------|
 | Speed | Fast | Slower (optimization) |
 | Resource Usage | Low | Higher (training) |
@@ -497,7 +499,7 @@ Steering vectors are saved in safetensors format with embedded metadata:
     # ... more layers
     "__metadata__": {
         "model": "meta-llama/Llama-3.2-3B-Instruct",
-        "method": "mean_contrastive",  # or "bipo"
+        "method": "mean_diff",  # or "bipo"
         "layers": ["model.layers[13].mlp.down_proj", "model.layers[14].mlp.down_proj"],
         "dataset_path": "./dataset/caa",
         "dataset_samples": 20000,

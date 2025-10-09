@@ -1,15 +1,15 @@
-"""Tests for CAADatasetLoader with v3 dataset format."""
+"""Tests for SteerDatasetLoader."""
 
 import json
 import pytest
 from pathlib import Path
 from transformers import AutoTokenizer
 
-from psyctl.core.caa_dataset_loader import CAADatasetLoader
+from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 from psyctl.core.logger import get_logger, setup_logging
 
 setup_logging()
-logger = get_logger("test_caa_loader_v3")
+logger = get_logger("test_steer_dataset_loader")
 
 
 @pytest.fixture
@@ -50,9 +50,9 @@ def v3_dataset_file(tmp_path):
 
 def test_load_v3_dataset(v3_dataset_file):
     """Test loading dataset."""
-    logger.info("Testing CAADatasetLoader.load()")
+    logger.info("Testing SteerDatasetLoader.load()")
 
-    loader = CAADatasetLoader()
+    loader = SteerDatasetLoader()
     dataset = loader.load(v3_dataset_file)
 
     assert len(dataset) == 2
@@ -71,7 +71,7 @@ def test_create_prompts_index_format(v3_dataset_file, tokenizer):
     """Test creating prompts with index format (CAA style)."""
     logger.info("Testing create_prompts() with index format")
 
-    loader = CAADatasetLoader()
+    loader = SteerDatasetLoader()
     dataset = loader.load(v3_dataset_file)
 
     pos_prompts, neu_prompts = loader.create_prompts(dataset, tokenizer, format_type="index")
@@ -92,7 +92,7 @@ def test_create_prompts_direct_format(v3_dataset_file, tokenizer):
     """Test creating prompts with direct format (BiPO style)."""
     logger.info("Testing create_prompts() with direct format")
 
-    loader = CAADatasetLoader()
+    loader = SteerDatasetLoader()
     dataset = loader.load(v3_dataset_file)
 
     pos_prompts, neu_prompts = loader.create_prompts(dataset, tokenizer, format_type="direct")
@@ -116,7 +116,7 @@ def test_prompt_format_comparison(v3_dataset_file, tokenizer):
     """Test that index and direct formats produce different prompts."""
     logger.info("Testing format comparison")
 
-    loader = CAADatasetLoader()
+    loader = SteerDatasetLoader()
     dataset = loader.load(v3_dataset_file)
 
     pos_index, _ = loader.create_prompts(dataset, tokenizer, format_type="index")
@@ -135,7 +135,7 @@ def test_v3_dataset_structure_validation(v3_dataset_file):
     """Test that dataset has correct structure."""
     logger.info("Testing dataset structure validation")
 
-    loader = CAADatasetLoader()
+    loader = SteerDatasetLoader()
     dataset = loader.load(v3_dataset_file)
 
     for entry in dataset:
@@ -161,7 +161,7 @@ def test_build_prompt_with_choices(v3_dataset_file, tokenizer):
     """Test _build_prompt_with_choices method."""
     logger.info("Testing _build_prompt_with_choices()")
 
-    loader = CAADatasetLoader()
+    loader = SteerDatasetLoader()
     dataset = loader.load(v3_dataset_file)
 
     sample = dataset[0]
@@ -187,7 +187,7 @@ def test_build_prompt_direct(v3_dataset_file, tokenizer):
     """Test _build_prompt_direct method."""
     logger.info("Testing _build_prompt_direct()")
 
-    loader = CAADatasetLoader()
+    loader = SteerDatasetLoader()
     dataset = loader.load(v3_dataset_file)
 
     sample = dataset[0]

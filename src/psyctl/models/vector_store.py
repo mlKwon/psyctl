@@ -69,7 +69,7 @@ class VectorStore:
             ... }
             >>> metadata = {
             ...     "model": "meta-llama/Llama-3.2-3B-Instruct",
-            ...     "method": "MeanContrastiveActivationVector",
+            ...     "method": "MeanDifferenceActivationVector",
             ...     "layers": list(vectors.keys())
             ... }
             >>> store.save_multi_layer(vectors, Path("out.safetensors"), metadata)

@@ -1,7 +1,7 @@
 """
-CAA Dataset Generation Example: Local Model
+Steering Dataset Generation Example: Local Model
 
-This example demonstrates how to generate CAA datasets using a local model.
+This example demonstrates how to generate steering datasets using a local model.
 NO OpenRouter API required - uses your local GPU instead.
 
 Requirements:
@@ -45,10 +45,10 @@ RESULTS_DIR = Path("./results")
 OUTPUT_DIR = RESULTS_DIR / "dataset_local"
 
 def main():
-    """Generate CAA dataset using local model."""
+    """Generate steering dataset using local model."""
 
     print("="*80)
-    print("CAA Dataset Generation: Local Model")
+    print("Steering Dataset Generation: Local Model")
     print("="*80)
     print(f"Model: {LOCAL_MODEL} (local)")
     print(f"Personality: {PERSONALITY}")
@@ -64,7 +64,7 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # =========================================================================
-    # Generate CAA Dataset with Local Model
+    # Generate Steering Dataset with Local Model
     # =========================================================================
     print("Initializing DatasetBuilder with local model...")
     logger.info(f"Using local model: {LOCAL_MODEL}")
@@ -74,7 +74,7 @@ def main():
         use_openrouter=False  # Use local model
     )
 
-    print(f"\nGenerating {SAMPLE_COUNT} CAA dataset samples...")
+    print(f"\nGenerating {SAMPLE_COUNT} steering dataset samples...")
     print("This may take a few minutes depending on your GPU...")
     print()
 

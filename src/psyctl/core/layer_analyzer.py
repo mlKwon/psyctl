@@ -9,7 +9,7 @@ from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 from psyctl.core.analyzers import SVMAnalyzer
-from psyctl.core.caa_dataset_loader import CAADatasetLoader
+from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 from psyctl.core.hook_manager import ActivationHookManager
 from psyctl.core.layer_accessor import LayerAccessor
 from psyctl.core.logger import get_logger
@@ -29,7 +29,7 @@ class LayerAnalyzer:
         self.logger = get_logger("layer_analyzer")
         self.llm_loader = LLMLoader()
         self.layer_accessor = LayerAccessor()
-        self.dataset_loader = CAADatasetLoader()
+        self.dataset_loader = SteerDatasetLoader()
 
     def analyze_layers(
         self,

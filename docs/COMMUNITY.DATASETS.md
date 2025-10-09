@@ -22,7 +22,7 @@ Base conversation datasets used to generate steering datasets. These contain soc
 
 ## 🎯 Steering Datasets
 
-Datasets for extracting personality steering vectors using methods like CAA (Contrastive Activation Addition) and BiPO. Each sample contains personality-specific (positive) and neutral responses to the same situation.
+Datasets for extracting personality steering vectors using methods like mean_diff (Mean Difference) and BiPO. Each sample contains personality-specific (positive) and neutral responses to the same situation. The extracted vectors are applied using CAA (Contrastive Activation Addition).
 
 **Format Example**:
 ```json

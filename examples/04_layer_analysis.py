@@ -6,7 +6,7 @@ This example demonstrates how to analyze multiple layers to determine
 which ones provide the best separation between positive and neutral activations.
 
 Steps:
-1. Generate or load a CAA dataset
+1. Generate or load a steering dataset
 2. Analyze layers using wildcard patterns
 3. Review results to select optimal target layers
 4. Use top layers for steering vector extraction

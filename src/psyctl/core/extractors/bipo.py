@@ -12,7 +12,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from psyctl.config import INFERENCE_BATCH_SIZE
-from psyctl.core.caa_dataset_loader import CAADatasetLoader
+from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 from psyctl.core.extractors.base import BaseVectorExtractor
 from psyctl.core.layer_accessor import LayerAccessor
 from psyctl.core.logger import get_logger
@@ -38,14 +38,14 @@ class BiPOVectorExtractor(BaseVectorExtractor):
     steering is applied in the positive direction, and vice versa.
 
     Attributes:
-        dataset_loader: Loader for CAA dataset
+        dataset_loader: Loader for steering dataset
         layer_accessor: Accessor for dynamic layer retrieval
         logger: Logger instance
     """
 
     def __init__(self):
         """Initialize BiPOVectorExtractor."""
-        self.dataset_loader = CAADatasetLoader()
+        self.dataset_loader = SteerDatasetLoader()
         self.layer_accessor = LayerAccessor()
         self.logger = get_logger("bipo_extractor")
 
@@ -61,6 +61,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         lr: float = 5e-4,
         beta: float = 0.1,
         epochs: int = 10,
+        weight_decay: float = 0.01,
         **kwargs,
     ) -> Dict[str, torch.Tensor]:
         """
@@ -72,13 +73,14 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             model: Loaded language model
             tokenizer: Model tokenizer
             layers: List of layer paths (e.g., ["model.layers[13].mlp"])
-            dataset_path: Path to CAA dataset or HuggingFace dataset name
+            dataset_path: Path to steering dataset or HuggingFace dataset name
             dataset: Pre-loaded dataset as list of dicts
             batch_size: Batch size for training (default: from config)
             normalize: Whether to normalize vectors to unit length
             lr: Learning rate for AdamW optimizer (default: 5e-4)
             beta: Temperature parameter for BiPO loss (default: 0.1)
             epochs: Number of training epochs (default: 10)
+            weight_decay: Weight decay for AdamW optimizer (default: 0.01)
             **kwargs: Additional parameters (unused)
 
         Returns:
@@ -153,6 +155,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
                 lr=lr,
                 beta=beta,
                 epochs=epochs,
+                weight_decay=weight_decay,
             )
 
             if normalize:
@@ -191,6 +194,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         lr: float,
         beta: float,
         epochs: int,
+        weight_decay: float,
     ) -> torch.Tensor:
         """
         Train a single steering vector using BiPO optimization.
@@ -206,6 +210,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             lr: Learning rate
             beta: BiPO temperature parameter
             epochs: Number of training epochs
+            weight_decay: Weight decay for optimizer
 
         Returns:
             Optimized steering vector
@@ -235,7 +240,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             self.logger.warning(f"Using CPU: {device} (GPU acceleration not available)")
 
         v = torch.zeros(hidden_size, requires_grad=True, device=device, dtype=dtype)
-        optimizer = AdamW([v], lr=lr, weight_decay=0.05)
+        optimizer = AdamW([v], lr=lr, weight_decay=weight_decay)
 
         # Prepare dataset
         dataset_samples = self._prepare_dataset(dataset, tokenizer)
@@ -352,7 +357,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         """
         # Random direction
         d = random.choice([-1, 1])
-        total_loss = 0.0
+        total_loss = None
 
         for situation, char_name, positive_resp, negative_resp in batch:
             # BiPO always uses full text format: evaluate P(full_answer | question)
@@ -385,7 +390,11 @@ class BiPOVectorExtractor(BaseVectorExtractor):
 
             logits = d * beta * (ratio_pos - ratio_neg)
             loss = -torch.log(torch.sigmoid(logits))
-            total_loss += loss
+
+            if total_loss is None:
+                total_loss = loss
+            else:
+                total_loss = total_loss + loss
 
         return total_loss / len(batch)
 
@@ -428,10 +437,11 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         )
 
         # Calculate question length to identify response tokens
+        # Use same tokenization method as full_text for consistency
         question_tokens = tokenizer(
-            question_text, max_length=512, truncation=True
+            question_text, return_tensors="pt", max_length=512, truncation=True
         )
-        question_len = len(question_tokens.input_ids)
+        question_len = question_tokens.input_ids.size(1)
 
         # Register steering hook if needed
         hook_handle = None
@@ -465,13 +475,22 @@ class BiPOVectorExtractor(BaseVectorExtractor):
                 with torch.no_grad():
                     logits = model(input_ids).logits
 
-            # Calculate log probabilities for response tokens
+            # Calculate log probabilities for response tokens only
+            # We calculate P(response | question) = P(r_T | q)
+            # For each response token at position i, we use:
+            #   log P(token_i | context_{<i})
+            # where context_{<i} includes all tokens up to (but not including) position i
             log_probs = F.log_softmax(logits, dim=-1)
-            total_logprob = 0.0
+            total_logprob = torch.tensor(0.0, device=input_ids.device)
 
-            for i in range(question_len - 1, input_ids.size(1) - 1):
-                next_token = input_ids[0, i + 1]
-                total_logprob += log_probs[0, i, next_token]
+            # Loop through response token positions only
+            # Start from question_len (first response token position)
+            # End at input_ids.size(1) (total sequence length)
+            for i in range(question_len, input_ids.size(1)):
+                current_token = input_ids[0, i]
+                # log_probs[0, i-1, :] contains P(token | context up to position i-1)
+                # We want P(token at position i | context up to position i-1)
+                total_logprob = total_logprob + log_probs[0, i - 1, current_token]
 
             return total_logprob
 

@@ -46,8 +46,8 @@ logger = get_logger("extract")
 @click.option(
     "--method",
     type=str,
-    default="mean_contrastive",
-    help="Extraction method: mean_contrastive (CAA) or bipo (BiPO optimization)",
+    default="mean_diff",
+    help="Extraction method: mean_diff (mean difference) or bipo (preference optimization)",
 )
 @click.option(
     "--lr",
@@ -88,19 +88,18 @@ def steering(
     - Comma-separated --layers: --layers "model.layers[13].mlp.down_proj,model.layers[14].mlp.down_proj"
 
     Methods:
-    - mean_contrastive (CAA): Fast statistical method using mean activation difference
+    - mean_diff: Fast statistical method using mean activation difference (MD from CAA paper)
     - bipo: Optimization-based method using preference learning
 
     Examples:
 
     \b
-    # CAA method (fast, statistical)
+    # mean_diff method (fast, statistical - default)
     psyctl extract.steering \\
       --model "meta-llama/Llama-3.2-3B-Instruct" \\
       --layer "model.layers[13].mlp.down_proj" \\
-      --dataset "./dataset/caa" \\
-      --output "./steering_vector/out.safetensors" \\
-      --method mean_contrastive
+      --dataset "./dataset/steering" \\
+      --output "./steering_vector/out.safetensors"
 
     \b
     # BiPO method (optimization-based)

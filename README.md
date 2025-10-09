@@ -20,8 +20,8 @@ A tool that supports steering LLMs to exhibit specific personalities. The goal i
 ### Core Guides
 
 - **[Build Steering Dataset](./docs/DATASET.BUILD.STEER.md)** - Generate steering datasets for vector extraction
-- **[Extract Steering Vectors](./docs/EXTRACT.STEERING.md)** - Extract steering vectors using CAA, BiPO, and other methods
-- **[Steering Experiment](./docs/STEERING.md)** - Apply steering vectors to generate text with personality
+- **[Extract Steering Vectors](./docs/EXTRACT.STEERING.md)** - Extract steering vectors using mean_diff or BiPO methods
+- **[Steering Experiment](./docs/STEERING.md)** - Apply steering vectors using CAA (Contrastive Activation Addition)
 
 ### Additional Resources
 
@@ -86,18 +86,18 @@ python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
 psyctl dataset.build.steer \
   --model "google/gemma-3-27b-it" \
   --personality "Extroversion, Machiavellism" \
-  --output "./dataset/cca"
+  --output "./dataset/steering"
 
 # 2. Upload dataset to HuggingFace Hub (optional)
 psyctl dataset.upload \
-  --dataset-file "./dataset/cca/caa_dataset_*.jsonl" \
-  --repo-id "username/extroversion-caa"
+  --dataset-file "./dataset/steering/steering_dataset_*.jsonl" \
+  --repo-id "username/extroversion-steering"
 
 # 3. Extract steering vector
 psyctl extract.steering \
   --model "meta-llama/Llama-3.2-3B-Instruct" \
   --layer "model.layers[13].mlp.down_proj" \
-  --dataset "./dataset/cca" \
+  --dataset "./dataset/steering" \
   --output "./steering_vector/out.safetensors"
 
 # 4. Steering experiment

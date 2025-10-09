@@ -1,4 +1,4 @@
-"""CAA dataset loader for steering vector extraction."""
+"""Steering dataset loader for steering vector extraction."""
 
 import json
 from pathlib import Path
@@ -11,9 +11,9 @@ from transformers import AutoTokenizer
 from psyctl.core.logger import get_logger
 
 
-class CAADatasetLoader:
+class SteerDatasetLoader:
     """
-    Load and process CAA (Contrastive Activation Addition) dataset.
+    Load and process steering dataset for steering vector extraction.
 
     Dataset format:
     {
@@ -29,8 +29,8 @@ class CAADatasetLoader:
     """
 
     def __init__(self):
-        """Initialize CAADatasetLoader with logger and Jinja2 environment."""
-        self.logger = get_logger("caa_dataset_loader")
+        """Initialize SteerDatasetLoader with logger and Jinja2 environment."""
+        self.logger = get_logger("steer_dataset_loader")
 
         # Setup Jinja2 environment for template loading
         template_dir = Path(__file__).parent.parent / "templates"
@@ -39,7 +39,7 @@ class CAADatasetLoader:
 
     def load(self, dataset_path: Union[Path, str]) -> List[dict]:
         """
-        Load CAA dataset from JSONL file or HuggingFace dataset.
+        Load steering dataset from JSONL file or HuggingFace dataset.
 
         Args:
             dataset_path: Path to dataset directory/JSONL file or HuggingFace dataset name
@@ -52,8 +52,8 @@ class CAADatasetLoader:
             ValueError: If dataset format is invalid
 
         Example:
-            >>> loader = CAADatasetLoader()
-            >>> dataset = loader.load(Path("./dataset/caa"))
+            >>> loader = SteerDatasetLoader()
+            >>> dataset = loader.load(Path("./dataset/steering"))
             >>> dataset = loader.load("CaveduckAI/steer-personality-rudeness-ko")
         """
         # Check if it's a HuggingFace dataset name
@@ -63,9 +63,11 @@ class CAADatasetLoader:
                 hf_dataset = load_dataset(dataset_path, split='train')
                 dataset = []
                 for item in hf_dataset:
-                    # Convert HF dataset format to CAA format
+                    # Convert HF dataset format to steering dataset format
+                    # Support both old (question) and new (situation) formats
                     entry = {
-                        'question': item.get('question', ''),
+                        'situation': item.get('situation', item.get('question', '')),
+                        'char_name': item.get('char_name', 'Assistant'),
                         'positive': item.get('positive', ''),
                         'neutral': item.get('neutral', '')
                     }
@@ -148,8 +150,8 @@ class CAADatasetLoader:
             Tuple of (positive_prompts, neutral_prompts)
 
         Example:
-            >>> loader = CAADatasetLoader()
-            >>> dataset = loader.load(Path("./dataset/caa"))
+            >>> loader = SteerDatasetLoader()
+            >>> dataset = loader.load(Path("./dataset/steering"))
             >>> pos_prompts, neu_prompts = loader.create_prompts(dataset, tokenizer)
         """
         self.logger.info(f"Creating prompts from {len(dataset)} dataset entries (format: {format_type})")
@@ -157,7 +159,7 @@ class CAADatasetLoader:
         positive_prompts = []
         neutral_prompts = []
 
-        for entry in dataset:
+        for idx, entry in enumerate(dataset):
             situation = entry['situation']
             char_name = entry['char_name']
             positive_answer = entry['positive']
@@ -166,12 +168,23 @@ class CAADatasetLoader:
             # Create prompts based on format type
             if format_type == "index":
                 # CAA format: show both answers with indices, append index
-                positive_prompt = self._build_prompt_with_choices(
-                    situation, char_name, positive_answer, neutral_answer, "(1", tokenizer
-                )
-                neutral_prompt = self._build_prompt_with_choices(
-                    situation, char_name, positive_answer, neutral_answer, "(2", tokenizer
-                )
+                # Alternate answer order to prevent order bias
+                if idx % 2 == 0:
+                    # Even: positive=(1, neutral=(2
+                    positive_prompt = self._build_prompt_with_choices(
+                        situation, char_name, positive_answer, neutral_answer, "(1", tokenizer
+                    )
+                    neutral_prompt = self._build_prompt_with_choices(
+                        situation, char_name, positive_answer, neutral_answer, "(2", tokenizer
+                    )
+                else:
+                    # Odd: positive=(2, neutral=(1 (swapped order)
+                    positive_prompt = self._build_prompt_with_choices(
+                        situation, char_name, neutral_answer, positive_answer, "(2", tokenizer
+                    )
+                    neutral_prompt = self._build_prompt_with_choices(
+                        situation, char_name, neutral_answer, positive_answer, "(1", tokenizer
+                    )
             elif format_type == "direct":
                 # BiPO format: direct answer without choices
                 positive_prompt = self._build_prompt_direct(
@@ -196,7 +209,7 @@ class CAADatasetLoader:
         selected: str, tokenizer: AutoTokenizer
     ) -> str:
         """
-        Build CAA-style prompt with multiple choices.
+        Build prompt with multiple choices for CAA extraction method.
 
         Args:
             situation: Situation description
@@ -281,7 +294,7 @@ class CAADatasetLoader:
             Batches of prompts
 
         Example:
-            >>> loader = CAADatasetLoader()
+            >>> loader = SteerDatasetLoader()
             >>> for batch in loader.get_batch_iterator(prompts, batch_size=16):
             ...     # Process batch
             ...     pass
@@ -300,8 +313,8 @@ class CAADatasetLoader:
             Dictionary with dataset information
 
         Example:
-            >>> loader = CAADatasetLoader()
-            >>> info = loader.get_dataset_info(Path("./dataset/caa"))
+            >>> loader = SteerDatasetLoader()
+            >>> info = loader.get_dataset_info(Path("./dataset/steering"))
             >>> print(info['num_samples'], info['file_size_mb'])
         """
         # Find dataset file
@@ -347,8 +360,8 @@ class CAADatasetLoader:
             True if dataset is valid, False otherwise
 
         Example:
-            >>> loader = CAADatasetLoader()
-            >>> is_valid = loader.validate_dataset(Path("./dataset/caa"))
+            >>> loader = SteerDatasetLoader()
+            >>> is_valid = loader.validate_dataset(Path("./dataset/steering"))
         """
         try:
             dataset = self.load(dataset_path)
@@ -359,7 +372,7 @@ class CAADatasetLoader:
 
             # Check first entry structure
             first_entry = dataset[0]
-            required_fields = ['question', 'positive', 'neutral']
+            required_fields = ['situation', 'char_name', 'positive', 'neutral']
             for field in required_fields:
                 if field not in first_entry:
                     self.logger.error(f"Missing required field: {field}")

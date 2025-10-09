@@ -3,7 +3,7 @@ OpenRouter API Client for PSYCTL
 
 This module provides an interface to OpenRouter API for generating personality-based
 responses using cloud-based LLMs. It supports structured output generation and batch
-processing for efficient CAA dataset creation.
+processing for efficient steering dataset creation.
 
 Key Features:
 - Structured JSON output using OpenRouter's response_format

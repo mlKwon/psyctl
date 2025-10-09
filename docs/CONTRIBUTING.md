@@ -110,12 +110,12 @@ from psyctl.core.extractors.my_method_extractor import MyMethodExtractor
 
 class SteeringExtractor:
     EXTRACTORS = {
-        'mean_contrastive': MeanContrastiveActivationVectorExtractor,
+        'mean_diff': MeanContrastiveActivationVectorExtractor,
         'bipo': BiPOVectorExtractor,
         'my_method': MyMethodExtractor,  # Add your extractor
     }
 
-    def extract(self, method: str = 'mean_contrastive', **kwargs):
+    def extract(self, method: str = 'mean_diff', **kwargs):
         extractor_class = self.EXTRACTORS.get(method)
         if extractor_class is None:
             raise ValueError(f"Unknown extraction method: {method}")
@@ -134,8 +134,8 @@ Add method selection to CLI command in `src/psyctl/commands/extract.py`:
 @click.option("--layer", multiple=True)
 @click.option("--dataset", required=True, type=click.Path())
 @click.option("--output", required=True, type=click.Path())
-@click.option("--method", default="mean_contrastive",
-              help="Extraction method: mean_contrastive, bipo, my_method")
+@click.option("--method", default="mean_diff",
+              help="Extraction method: mean_diff, bipo, my_method")
 @click.option("--lr", type=float, default=5e-4, help="Learning rate for BiPO")
 @click.option("--beta", type=float, default=0.1, help="Beta parameter for BiPO")
 @click.option("--epochs", type=int, default=10, help="Number of epochs for BiPO")
@@ -277,7 +277,7 @@ Steering vectors should be saved in safetensors format with embedded metadata:
     # ... more layers
     "__metadata__": {
         "model": "meta-llama/Llama-3.2-3B-Instruct",
-        "method": "mean_contrastive",  # or "bipo"
+        "method": "mean_diff",  # or "bipo"
         "layers": ["model.layers[13].mlp.down_proj", "model.layers[14].mlp.down_proj"],
         "dataset_path": "./dataset/caa",
         "dataset_samples": 20000,

@@ -95,7 +95,7 @@ def main():
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     # =========================================================================
-    # STEP 1: Generate CAA Dataset with OpenRouter
+    # STEP 1: Generate Steering Dataset with OpenRouter
     # =========================================================================
     if args.skip_dataset:
         if not args.dataset_path:
@@ -110,7 +110,7 @@ def main():
         print()
     else:
         print("\n" + "="*80)
-        print("STEP 1: Generating CAA Dataset")
+        print("STEP 1: Generating Steering Dataset")
         print("="*80)
         print(f"Model: {DATASET_MODEL}")
         print(f"Personality: {PERSONALITY}")
@@ -130,8 +130,8 @@ def main():
         dataset_builder.set_roleplay_prompt_template(ROLEPLAY_TEMPLATE)
         dataset_builder.set_caa_question_template(CAA_QUESTION_TEMPLATE)
 
-        # Build CAA dataset
-        logger.info("Starting CAA dataset generation")
+        # Build steering dataset
+        logger.info("Starting steering dataset generation")
         try:
             dataset_file = dataset_builder.build_caa_dataset(
                 model=DATASET_MODEL,
@@ -142,8 +142,8 @@ def main():
                 temperature=0.7,
                 max_tokens=100
             )
-            print(f"\n[SUCCESS] CAA dataset generated: {dataset_file}")
-            logger.info(f"CAA dataset generated successfully: {dataset_file}")
+            print(f"\n[SUCCESS] Steering dataset generated: {dataset_file}")
+            logger.info(f"Steering dataset generated successfully: {dataset_file}")
 
             # Display sample data from generated dataset
             print("\n" + "-"*80)
@@ -163,7 +163,7 @@ def main():
             print("-"*80)
 
         except Exception as e:
-            logger.error(f"Failed to generate CAA dataset: {e}")
+            logger.error(f"Failed to generate steering dataset: {e}")
             raise
 
     # =========================================================================
@@ -284,7 +284,7 @@ def main():
     print("\n" + "="*80)
     print("SUMMARY")
     print("="*80)
-    print(f"[SUCCESS] CAA Dataset: {dataset_file}")
+    print(f"[SUCCESS] Steering Dataset: {dataset_file}")
     print(f"[SUCCESS] Steering Vector: {STEERING_VECTOR_PATH}")
     print(f"[SUCCESS] Training Epochs: {args.epochs}")
     print(f"[SUCCESS] Steering Strength: 1.5")

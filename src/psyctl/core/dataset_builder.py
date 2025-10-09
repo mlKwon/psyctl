@@ -3,12 +3,12 @@ Dataset Builder for Personality Steering Vector Extraction
 
 This module implements the DatasetBuilder class which creates steering datasets
 for personality steering vector extraction. These datasets are compatible with multiple
-extraction methods including CAA (Contrastive Activation Addition) and BiPO.
+extraction methods including mean_diff and BiPO.
 
 Key Concepts:
 - Steering Dataset: Raw data (situation, character, positive/neutral responses) for training
-- CAA: Contrastive Activation Addition extraction method
-- BiPO: Bi-Directional Preference Optimization extraction method
+- Extraction Methods: mean_diff (Mean Difference from CAA paper) and BiPO (preference optimization)
+- Application Method: CAA (Contrastive Activation Addition) - adds extracted vectors to activations
 - Personality Steering: Modifying LLM behavior to exhibit specific personality characteristics
 
 Workflow:
@@ -988,13 +988,10 @@ class DatasetBuilder:
             sample["situation"] = situation
             sample["char_name"] = char_name
 
-            if sample_idx % 2 == 0:
-                sample["positive"] = answer_positive
-                sample["neutral"] = answer_neutral
-            else:
-                # Swap to balance dataset
-                sample["positive"] = answer_neutral
-                sample["neutral"] = answer_positive
+            # Always store answers consistently (no swapping)
+            # BiPO relies on field names, not answer order
+            sample["positive"] = answer_positive
+            sample["neutral"] = answer_neutral
 
             samples.append(sample)
 

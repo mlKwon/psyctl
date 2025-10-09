@@ -1,14 +1,14 @@
 """
-PSYCTL End-to-End Example: Korean Rudeness with CAA Method
+PSYCTL End-to-End Example: Korean Rudeness with Mean Diff Method
 
-This script demonstrates the complete workflow using CAA (Contrastive Activation Addition):
-1. Generate CAA dataset using OpenRouter API with Korean dialogue data
-2. Extract CAA steering vector (mean contrastive method - faster than BiPO)
-3. Apply steering to test the personality transformation
+This script demonstrates the complete workflow using mean_diff extraction method:
+1. Generate steering dataset using OpenRouter API with Korean dialogue data
+2. Extract steering vector using mean_diff method (Mean Difference from CAA paper - faster than BiPO)
+3. Apply steering using CAA (Contrastive Activation Addition) to test personality transformation
 
-CAA vs BiPO:
-- CAA: Computes mean difference between positive/neutral activations (fast, no training)
-- BiPO: Optimizes steering vector through gradient descent (slower, potentially better)
+Extraction Methods:
+- mean_diff: Computes mean difference between positive/neutral activations (fast, no training)
+- bipo: Optimizes steering vector through gradient descent (slower, potentially better)
 
 Requirements:
 - .env file with HF_TOKEN and OPENROUTER_API_KEY
@@ -76,8 +76,8 @@ CAA_QUESTION_TEMPLATE = """[상황]
 """
 
 def main():
-    """Execute the complete end-to-end workflow with CAA method."""
-    parser = argparse.ArgumentParser(description="PSYCTL End-to-End CAA Example")
+    """Execute the complete end-to-end workflow with mean_diff extraction method."""
+    parser = argparse.ArgumentParser(description="PSYCTL End-to-End Mean Diff Example")
     parser.add_argument("--skip-dataset", action="store_true",
                         help="Skip dataset generation and use existing dataset")
     parser.add_argument("--dataset-path", type=str,
@@ -85,7 +85,7 @@ def main():
     args = parser.parse_args()
 
     print("="*80)
-    print("PSYCTL End-to-End Example: CAA Method (Mean Contrastive)")
+    print("PSYCTL End-to-End Example: Mean Diff Extraction Method")
     print("="*80)
     print()
 
@@ -93,7 +93,7 @@ def main():
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     # =========================================================================
-    # STEP 1: Generate CAA Dataset with OpenRouter
+    # STEP 1: Generate Steering Dataset with OpenRouter
     # =========================================================================
     if args.skip_dataset:
         if not args.dataset_path:
@@ -108,7 +108,7 @@ def main():
         print()
     else:
         print("\n" + "="*80)
-        print("STEP 1: Generating CAA Dataset")
+        print("STEP 1: Generating Steering Dataset")
         print("="*80)
         print(f"Model: {DATASET_MODEL}")
         print(f"Personality: {PERSONALITY}")
@@ -128,8 +128,8 @@ def main():
         dataset_builder.set_roleplay_prompt_template(ROLEPLAY_TEMPLATE)
         dataset_builder.set_caa_question_template(CAA_QUESTION_TEMPLATE)
 
-        # Build CAA dataset
-        logger.info("Starting CAA dataset generation")
+        # Build steering dataset
+        logger.info("Starting steering dataset generation")
         try:
             dataset_file = dataset_builder.build_caa_dataset(
                 model=DATASET_MODEL,
@@ -140,8 +140,8 @@ def main():
                 temperature=0.7,
                 max_tokens=100
             )
-            print(f"\n[SUCCESS] CAA dataset generated: {dataset_file}")
-            logger.info(f"CAA dataset generated successfully: {dataset_file}")
+            print(f"\n[SUCCESS] Steering dataset generated: {dataset_file}")
+            logger.info(f"Steering dataset generated successfully: {dataset_file}")
 
             # Display sample data from generated dataset
             print("\n" + "-"*80)
@@ -161,26 +161,26 @@ def main():
             print("-"*80)
 
         except Exception as e:
-            logger.error(f"Failed to generate CAA dataset: {e}")
+            logger.error(f"Failed to generate steering dataset: {e}")
             raise
 
     # =========================================================================
-    # STEP 2: Extract CAA Steering Vector (Mean Contrastive)
+    # STEP 2: Extract Steering Vector using Mean Diff Method
     # =========================================================================
     print("\n" + "="*80)
-    print("STEP 2: Extracting CAA Steering Vector")
+    print("STEP 2: Extracting Steering Vector")
     print("="*80)
     print(f"Model: {STEERING_MODEL}")
     print(f"Dataset: {dataset_file}")
-    print(f"Method: CAA (Mean Contrastive Activation)")
-    print(f"Note: CAA is faster than BiPO (no training required)")
+    print(f"Method: mean_diff (Mean Difference)")
+    print(f"Note: mean_diff is faster than BiPO (no training required)")
     print()
 
     logger.info("Initializing SteeringExtractor")
     extractor = SteeringExtractor()
 
-    # Extract steering vector using CAA method
-    logger.info("Starting CAA steering vector extraction")
+    # Extract steering vector using mean_diff method
+    logger.info("Starting steering vector extraction using mean_diff method")
     try:
         # Determine target layers - use middle layer for gemma-3-270m-it
         target_layers = ["model.layers.9.mlp.down_proj"]  # Middle layer for gemma-3-270m-it (18 layers)
@@ -190,7 +190,7 @@ def main():
             layers=target_layers,
             dataset_path=dataset_file,
             output_path=STEERING_VECTOR_PATH,
-            method="mean_contrastive",  # CAA method
+            method="mean_diff",  # Mean Difference extraction
             normalize=True
         )
         print(f"\n[SUCCESS] Steering vector extracted: {STEERING_VECTOR_PATH}")
@@ -274,14 +274,15 @@ def main():
     print("\n" + "="*80)
     print("SUMMARY")
     print("="*80)
-    print(f"[SUCCESS] CAA Dataset: {dataset_file}")
+    print(f"[SUCCESS] Steering Dataset: {dataset_file}")
     print(f"[SUCCESS] Steering Vector: {STEERING_VECTOR_PATH}")
     print(f"\n[SUCCESS] Baseline Response: {response_baseline}")
     print(f"[SUCCESS] Steered Response: {response_steered}")
-    print("\nEnd-to-end workflow with CAA method completed successfully!")
+    print("\nEnd-to-end workflow completed successfully!")
+    print("Extraction: mean_diff (MD) | Application: CAA (Contrastive Activation Addition)")
     print("="*80)
 
-    logger.info("End-to-end workflow with CAA method completed successfully")
+    logger.info("End-to-end workflow completed successfully")
 
 if __name__ == "__main__":
     main()

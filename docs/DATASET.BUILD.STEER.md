@@ -1,6 +1,6 @@
 # Build Steering Dataset
 
-This document describes how to build steering datasets using the `psyctl dataset.build.steer` command. These datasets are compatible with multiple steering vector extraction methods including CAA (Contrastive Activation Addition) and BiPO (Bi-Directional Preference Optimization).
+This document describes how to build steering datasets using the `psyctl dataset.build.steer` command. These datasets are compatible with multiple steering vector extraction methods including mean_diff (Mean Difference) and BiPO (Bi-Directional Preference Optimization).
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ This document describes how to build steering datasets using the `psyctl dataset
 
 Steering datasets contain paired prompts designed to elicit contrasting personality-driven responses from language models. These datasets serve as training data for extracting steering vectors that can modify model behavior.
 
-The dataset stores raw components (situation, character name, positive/neutral responses) in a clean format, allowing different extraction methods (CAA, BiPO, etc.) to build prompts as needed at training time.
+The dataset stores raw components (situation, character name, positive/neutral responses) in a clean format, allowing different extraction methods (mean_diff, BiPO, etc.) to build prompts as needed at training time.
 
 The dataset building process involves:
 

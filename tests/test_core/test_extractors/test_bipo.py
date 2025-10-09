@@ -83,7 +83,7 @@ class TestBiPOVectorExtractor:
         assert extractor.layer_accessor is not None
         assert extractor.logger is not None
 
-    @patch('psyctl.core.extractors.bipo.CAADatasetLoader')
+    @patch('psyctl.core.extractors.bipo.SteerDatasetLoader')
     @patch('psyctl.core.extractors.bipo.LayerAccessor')
     def test_extract_validates_layers(
         self, mock_layer_accessor_class, mock_dataset_loader_class, mock_model
@@ -258,7 +258,8 @@ class TestBiPOVectorExtractor:
                 batch_size=1,
                 lr=5e-4,
                 beta=0.1,
-                epochs=1
+                epochs=1,
+                weight_decay=0.01
             )
 
             assert isinstance(steering_vec, torch.Tensor)
@@ -267,7 +268,7 @@ class TestBiPOVectorExtractor:
 
     def test_extract_normalization(self, mock_model, mock_tokenizer, tmp_path):
         """Test vector normalization option."""
-        with patch('psyctl.core.extractors.bipo.CAADatasetLoader') as mock_loader_class:
+        with patch('psyctl.core.extractors.bipo.SteerDatasetLoader') as mock_loader_class:
             with patch('psyctl.core.extractors.bipo.LayerAccessor') as mock_accessor_class:
                 # Setup mocks
                 mock_loader = MagicMock()
@@ -311,7 +312,7 @@ class TestBiPOVectorExtractor:
         self, mock_model, mock_tokenizer, tmp_path
     ):
         """Test extraction without normalization."""
-        with patch('psyctl.core.extractors.bipo.CAADatasetLoader') as mock_loader_class:
+        with patch('psyctl.core.extractors.bipo.SteerDatasetLoader') as mock_loader_class:
             with patch('psyctl.core.extractors.bipo.LayerAccessor') as mock_accessor_class:
                 # Setup mocks
                 mock_loader = MagicMock()

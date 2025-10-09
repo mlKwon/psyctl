@@ -1,7 +1,7 @@
 """
-CAA Dataset Generation Example: OpenRouter API
+Steering Dataset Generation Example: OpenRouter API
 
-This example demonstrates how to generate CAA datasets using OpenRouter API.
+This example demonstrates how to generate steering datasets using OpenRouter API.
 NO GPU required - uses cloud-based inference instead.
 
 Requirements:
@@ -58,10 +58,10 @@ AVAILABLE_MODELS = {
 }
 
 def main():
-    """Generate CAA dataset using OpenRouter API."""
+    """Generate steering dataset using OpenRouter API."""
 
     print("="*80)
-    print("CAA Dataset Generation: OpenRouter API")
+    print("Steering Dataset Generation: OpenRouter API")
     print("="*80)
     print(f"Model: {OPENROUTER_MODEL} (cloud)")
     print(f"Personality: {PERSONALITY}")
@@ -83,7 +83,7 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # =========================================================================
-    # Generate CAA Dataset with OpenRouter
+    # Generate Steering Dataset with OpenRouter
     # =========================================================================
     print("Initializing DatasetBuilder with OpenRouter...")
     logger.info(f"Using OpenRouter model: {OPENROUTER_MODEL}")
@@ -95,7 +95,7 @@ def main():
         openrouter_max_workers=MAX_WORKERS  # Parallel processing
     )
 
-    print(f"\nGenerating {SAMPLE_COUNT} CAA dataset samples...")
+    print(f"\nGenerating {SAMPLE_COUNT} steering dataset samples...")
     print(f"Using {MAX_WORKERS} parallel workers for speed...")
     print()
 
