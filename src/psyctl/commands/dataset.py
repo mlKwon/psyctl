@@ -54,12 +54,6 @@ logger = get_logger("dataset")
     help="Number of parallel workers for OpenRouter API (1 = sequential, higher = parallel)",
 )
 @click.option(
-    "--caa-question-template",
-    required=False,
-    type=click.Path(exists=True),
-    help="Path to custom Jinja2 template for CAA questions (.j2 file)",
-)
-@click.option(
     "--roleplay-prompt-template",
     required=False,
     type=click.Path(exists=True),
@@ -74,7 +68,6 @@ def build_steer(
     openrouter_api_key: str,
     openrouter_model: str,
     openrouter_max_workers: int,
-    caa_question_template: str,
     roleplay_prompt_template: str,
 ):
     """Build steering dataset for steering vector extraction."""
@@ -117,7 +110,6 @@ def build_steer(
             use_openrouter=use_openrouter,
             openrouter_api_key=openrouter_api_key,
             openrouter_max_workers=openrouter_max_workers,
-            caa_question_template=caa_question_template,
             roleplay_prompt_template=roleplay_prompt_template,
         )
         # Use openrouter_model if using OpenRouter, otherwise use the local model
@@ -159,7 +151,23 @@ def build_steer(
     required=False,
     help="License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')"
 )
-def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str, license: str):
+@click.option(
+    "--personality",
+    required=False,
+    help="Personality trait for dataset card (e.g., 'Extroversion', 'Rudeness')"
+)
+@click.option(
+    "--model",
+    required=False,
+    help="Model name used to generate dataset (e.g., 'meta-llama/Llama-3.2-3B-Instruct')"
+)
+@click.option(
+    "--dataset-source",
+    required=False,
+    help="Source dataset used (e.g., 'allenai/soda', 'CaveduckAI/simplified_soda_kr')"
+)
+def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str,
+           license: str, personality: str, model: str, dataset_source: str):
     """Upload steering dataset to HuggingFace Hub."""
     from psyctl.core.utils import validate_hf_token
 
@@ -189,7 +197,10 @@ def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str, 
             private=private,
             commit_message=commit_message,
             token=token,
-            license=license
+            license=license,
+            personality=personality,
+            model=model,
+            dataset_source=dataset_source
         )
 
         logger.info(f"Upload completed successfully")

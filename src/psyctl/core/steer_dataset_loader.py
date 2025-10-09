@@ -223,7 +223,7 @@ class SteerDatasetLoader:
             Complete prompt with choices and selection
         """
         # Load template
-        template = self.jinja_env.get_template('caa_question.j2')
+        template = self.jinja_env.get_template('md_question.j2')
         question = template.render(
             char_name=char_name,
             situation=situation.strip(),

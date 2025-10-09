@@ -52,7 +52,7 @@ RESULTS_DIR = Path("./results")
 DATASET_OUTPUT = RESULTS_DIR / "korean_rudeness_caa"
 STEERING_VECTOR_PATH = RESULTS_DIR / "korean_rudeness_caa_steering.safetensors"
 
-# Custom Korean templates
+# Custom Korean template for roleplay prompts
 ROLEPLAY_TEMPLATE = """# 개요
 이것은 롤플레이 세션입니다.
 당신(어시스턴트 또는 모델)의 역할은 {{ char_name }}입니다.
@@ -64,15 +64,6 @@ ROLEPLAY_TEMPLATE = """# 개요
 
 # 상황
 {{ situation }}
-"""
-
-CAA_QUESTION_TEMPLATE = """[상황]
-{{ situation }}
-[질문]
-당신은 {{ char_name }}입니다. 이 상황에서 어떻게 반응하시겠습니까?
-1. {{ answer_1 }}
-2. {{ answer_2 }}
-[답변]
 """
 
 def main():
@@ -123,10 +114,9 @@ def main():
             openrouter_max_workers=2  # Parallel processing
         )
 
-        # Set custom Korean templates
-        logger.info("Setting custom Korean templates")
+        # Set custom Korean template
+        logger.info("Setting custom Korean roleplay template")
         dataset_builder.set_roleplay_prompt_template(ROLEPLAY_TEMPLATE)
-        dataset_builder.set_caa_question_template(CAA_QUESTION_TEMPLATE)
 
         # Build steering dataset
         logger.info("Starting steering dataset generation")

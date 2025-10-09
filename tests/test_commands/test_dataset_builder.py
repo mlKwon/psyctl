@@ -282,8 +282,8 @@ def test_template_loading(dataset_builder_instance):
     logger.info("Testing template loading functionality")
 
     # Test loading default templates
-    caa_template = dataset_builder_instance._load_template('caa_question.j2')
-    assert caa_template is not None
+    md_template = dataset_builder_instance._load_template('md_question.j2')
+    assert md_template is not None
 
     roleplay_template = dataset_builder_instance._load_template('roleplay_prompt.j2')
     assert roleplay_template is not None

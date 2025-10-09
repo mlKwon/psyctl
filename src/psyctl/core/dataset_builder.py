@@ -85,7 +85,7 @@ class DatasetBuilder:
         _build_caa_dataset: Core dataset building logic
     """
 
-    def __init__(self, use_openrouter: bool = False, openrouter_api_key: str = None, openrouter_max_workers: int = 1, caa_question_template: str = None, roleplay_prompt_template: str = None):
+    def __init__(self, use_openrouter: bool = False, openrouter_api_key: str = None, openrouter_max_workers: int = 1, roleplay_prompt_template: str = None):
         """
         Initialize DatasetBuilder with required components.
 
@@ -96,7 +96,6 @@ class DatasetBuilder:
             use_openrouter (bool): Whether to use OpenRouter API instead of local model
             openrouter_api_key (str): OpenRouter API key (required if use_openrouter=True)
             openrouter_max_workers (int): Number of parallel workers for OpenRouter (1 = sequential)
-            caa_question_template (str): Path to custom Jinja2 template for CAA questions (optional)
             roleplay_prompt_template (str): Path to custom Jinja2 template for roleplay prompts (optional)
         """
         self.use_openrouter = use_openrouter
@@ -126,8 +125,7 @@ class DatasetBuilder:
             autoescape=jinja2.select_autoescape()
         )
 
-        # Store custom template paths
-        self.caa_question_template_path = caa_question_template
+        # Store custom template path
         self.roleplay_prompt_template_path = roleplay_prompt_template
 
         # Validate OpenRouter configuration
@@ -348,7 +346,7 @@ class DatasetBuilder:
         set via set_*_template() methods.
 
         Args:
-            template_name (str): Name of the default template file (e.g., 'caa_question.j2')
+            template_name (str): Name of the default template file (e.g., 'md_question.j2', 'roleplay_prompt.j2')
             custom_template_path (str): Path to custom template file (optional)
 
         Returns:
@@ -358,8 +356,6 @@ class DatasetBuilder:
             FileNotFoundError: If custom template path is provided but file doesn't exist
         """
         # Check for in-memory custom templates first
-        if template_name == 'caa_question.j2' and hasattr(self, '_custom_caa_template'):
-            return self.jinja_env.from_string(self._custom_caa_template)
         if template_name == 'roleplay_prompt.j2' and hasattr(self, '_custom_roleplay_template'):
             return self.jinja_env.from_string(self._custom_roleplay_template)
 
@@ -374,39 +370,6 @@ class DatasetBuilder:
 
         # Load default template
         return self.jinja_env.get_template(template_name)
-
-    def get_caa_question_template(self) -> str:
-        """
-        Get the current CAA question template content as string.
-
-        Returns:
-            str: Template content as string
-
-        Example:
-            >>> builder = DatasetBuilder()
-            >>> template_str = builder.get_caa_question_template()
-            >>> print(template_str)
-        """
-        # Check for in-memory custom template first
-        if hasattr(self, '_custom_caa_template'):
-            return self._custom_caa_template
-
-        # Load from file if custom path provided
-        if self.caa_question_template_path:
-            with open(self.caa_question_template_path, 'r', encoding='utf-8') as f:
-                return f.read()
-
-        # Load default template from package by reading the source file
-        import importlib.resources
-        try:
-            # Python 3.9+
-            template_content = importlib.resources.files('psyctl.templates').joinpath('caa_question.j2').read_text(encoding='utf-8')
-        except AttributeError:
-            # Fallback for older Python versions
-            with importlib.resources.path('psyctl.templates', 'caa_question.j2') as template_path:
-                with open(template_path, 'r', encoding='utf-8') as f:
-                    template_content = f.read()
-        return template_content
 
     def get_roleplay_prompt_template(self) -> str:
         """
@@ -440,34 +403,6 @@ class DatasetBuilder:
                 with open(template_path, 'r', encoding='utf-8') as f:
                     template_content = f.read()
         return template_content
-
-    def set_caa_question_template(self, template_content: str) -> None:
-        """
-        Set a custom CAA question template from string content.
-
-        This method allows setting a template directly from a string without
-        needing to save it to a file first.
-
-        Args:
-            template_content (str): Jinja2 template content as string
-
-        Example:
-            >>> builder = DatasetBuilder()
-            >>> custom_template = '''
-            ... [Custom Situation]
-            ... {{ situation }}
-            ... [Custom Question]
-            ... {{ char_name }}, what would you say?
-            ... 1. {{ answer_1 }}
-            ... 2. {{ answer_2 }}
-            ... [Custom Answer]
-            ... '''
-            >>> builder.set_caa_question_template(custom_template)
-        """
-        # Store template content in a temporary attribute
-        self._custom_caa_template = template_content
-        # Clear file path since we're using string template
-        self.caa_question_template_path = None
 
     def set_roleplay_prompt_template(self, template_content: str) -> None:
         """
@@ -739,43 +674,6 @@ class DatasetBuilder:
                         all_responses.append("")
 
         return all_responses
-
-    def _gen_caa_data(
-        self, char_name: str, situation: str, answer_1: str, answer_2: str
-    ) -> str:
-        """
-        Generate contrastive CAA data template.
-
-        Creates a training example from a single situation by presenting
-        the model with two different personality-based responses as options.
-        This enables contrastive learning for steering vector extraction.
-
-        Args:
-            char_name (str): Name of the character in the situation
-            situation (str): Conversational context and situation
-            answer_1 (str): First personality response option
-            answer_2 (str): Second personality response option
-
-        Returns:
-            str: Template containing the situation, question, and two answer options.
-
-        Note:
-            The responses are cleaned (stripped and newlines removed) before
-            being inserted into the template. The template format follows
-            a multiple-choice question structure.
-        """
-        answer_1 = answer_1.strip().replace("\n", "")
-        answer_2 = answer_2.strip().replace("\n", "")
-
-        # Load and render template
-        template = self._load_template('caa_question.j2', self.caa_question_template_path)
-        result = template.render(
-            char_name=char_name,
-            situation=situation.strip(),
-            answer_1=answer_1,
-            answer_2=answer_2
-        )
-        return result
 
     def _save_sample_to_jsonl(self, sample: Dict[str, str], output_file: Path) -> None:
         """
@@ -1170,7 +1068,10 @@ psyctl steering \\
         private: bool = False,
         commit_message: str = "Upload steering dataset via PSYCTL",
         token: Optional[str] = None,
-        license: Optional[str] = None
+        license: Optional[str] = None,
+        personality: Optional[str] = None,
+        model: Optional[str] = None,
+        dataset_source: Optional[str] = None
     ) -> str:
         """
         Upload steering dataset to HuggingFace Hub with PSYCTL branding.
@@ -1182,6 +1083,9 @@ psyctl steering \\
             commit_message: Commit message for upload
             token: HuggingFace token (uses HF_TOKEN env if None)
             license: License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')
+            personality: Personality trait for dataset card (optional)
+            model: Model name used to generate dataset (optional)
+            dataset_source: Source dataset used (optional)
 
         Returns:
             str: Repository URL
@@ -1196,7 +1100,9 @@ psyctl steering \\
             ...     jsonl_file=Path("./dataset/caa_dataset_20250107.jsonl"),
             ...     repo_id="username/extroversion-caa",
             ...     private=False,
-            ...     license="mit"
+            ...     license="mit",
+            ...     personality="Extroversion",
+            ...     model="meta-llama/Llama-3.2-3B-Instruct"
             ... )
             >>> print(f"Uploaded to: {url}")
         """
@@ -1235,11 +1141,11 @@ psyctl steering \\
 
         # Generate dataset card
         card_content = self._generate_dataset_card(
-            personality=self.personality or "Unknown",
-            model=self.active_model or "Unknown",
+            personality=personality or self.personality or "Unknown",
+            model=model or self.active_model or "Unknown",
             num_samples=len(dataset),
             timestamp=timestamp,
-            dataset_source=self.dataset_name or "allenai/soda",
+            dataset_source=dataset_source or self.dataset_name or "allenai/soda",
             license=license,
             repo_id=repo_id
         )

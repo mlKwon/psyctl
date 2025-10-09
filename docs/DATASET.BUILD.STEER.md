@@ -294,19 +294,18 @@ The dataset builder uses P2 (Personality Prompt) to generate personality-specifi
 
 ### Custom Templates
 
-PSYCTL supports custom Jinja2 templates for different languages or prompt styles.
+PSYCTL supports custom Jinja2 templates for roleplay prompts to support different languages or prompt styles.
 
 **Usage:**
 ```bash
 psyctl dataset.build.steer \
-  --caa-question-template "./templates/custom.j2" \
   --roleplay-prompt-template "./templates/roleplay.j2" \
   --model "google/gemma-2-2b-it" \
   --personality "Extroversion" \
   --output "./dataset/custom"
 ```
 
-Default templates are in `src/psyctl/templates/`. See examples in that directory for variable reference.
+Default template is `src/psyctl/templates/roleplay_prompt.j2`. See the template file for available variables (char_name, user_name, p2, situation).
 
 
 ## References
