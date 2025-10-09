@@ -1,0 +1,396 @@
+# Build Steering Dataset
+
+This document describes how to build steering datasets using the `psyctl dataset.build.steer` command. These datasets are compatible with multiple steering vector extraction methods including CAA (Contrastive Activation Addition) and BiPO (Bi-Directional Preference Optimization).
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Usage](#usage)
+- [OpenRouter Integration](#openrouter-integration)
+- [Dataset Source](#dataset-source)
+- [Output Format](#output-format)
+- [Performance Optimization](#performance-optimization)
+- [Checkpoint and Resume](#checkpoint-and-resume)
+- [Adding Custom Datasets](#adding-custom-datasets)
+
+## Overview
+
+Steering datasets contain paired prompts designed to elicit contrasting personality-driven responses from language models. These datasets serve as training data for extracting steering vectors that can modify model behavior.
+
+The dataset stores raw components (situation, character name, positive/neutral responses) in a clean format, allowing different extraction methods (CAA, BiPO, etc.) to build prompts as needed at training time.
+
+The dataset building process involves:
+
+1. Loading a base conversational dataset (e.g., SODA)
+2. Generating personality-specific character descriptions using P2 (Personality Prompt)
+3. Creating positive/neutral response pairs for each scenario
+4. Saving raw components in JSONL format for steering vector extraction
+
+## Usage
+
+### Basic Command
+
+Generate a steering dataset for a specific personality trait:
+
+```bash
+psyctl dataset.build.steer \
+  --model "google/gemma-2-2b-it" \
+  --personality "Extroversion" \
+  --output "./dataset/extroversion"
+```
+
+### With Custom Dataset
+
+Use a different Hugging Face dataset as the base:
+
+```bash
+psyctl dataset.build.steer \
+  --model "meta-llama/Llama-3.2-3B-Instruct" \
+  --personality "Machiavellianism" \
+  --dataset "username/custom-conversations" \
+  --output "./dataset/machiavellianism"
+```
+
+### Limit Sample Count
+
+Generate a specific number of samples for testing:
+
+```bash
+psyctl dataset.build.steer \
+  --model "google/gemma-3-270m-it" \
+  --personality "Extroversion" \
+  --output "./dataset/test" \
+  --limit-samples 100
+```
+
+### Multiple Personalities
+
+Generate datasets for multiple personality traits:
+
+```bash
+psyctl dataset.build.steer \
+  --model "google/gemma-3-27b-it" \
+  --personality "Extroversion, Machiavellianism" \
+  --output "./dataset/multi"
+```
+
+## OpenRouter Integration
+
+PSYCTL supports OpenRouter API for dataset generation without local GPU requirements.
+
+**Basic usage:**
+```bash
+psyctl dataset.build.steer \
+  --openrouter-api-key "sk-or-v1-xxxx" \
+  --personality "Extroversion" \
+  --output "./dataset/openrouter"
+```
+
+For detailed documentation, parallel processing, and Python API examples, see **[OpenRouter Guide](./OPENROUTER.md)**.
+
+## Dataset Source
+
+### Default Dataset: SODA
+
+By default, the command uses the [SODA dataset](https://huggingface.co/datasets/allenai/soda) (Social Dialogue dataset) which contains:
+
+- Over 1.5M dialogue turns
+- Diverse conversational scenarios
+- Natural social interaction patterns
+- High-quality human annotations
+
+### Using Custom Datasets
+
+You can use any Hugging Face dataset that provides conversational contexts:
+
+**Requirements:**
+- Must be accessible via Hugging Face Datasets library
+- Should contain dialogue or scenario information
+- Recommended: Conversational or social interaction data
+
+**Example custom datasets:**
+```bash
+# Using DailyDialog
+psyctl dataset.build.steer \
+  --dataset "daily_dialog" \
+  --model "google/gemma-2-2b-it" \
+  --personality "Extroversion" \
+  --output "./dataset/daily"
+
+# Using custom dataset
+psyctl dataset.build.steer \
+  --dataset "myusername/my-conversations" \
+  --model "google/gemma-2-2b-it" \
+  --personality "Introversion" \
+  --output "./dataset/custom"
+```
+
+## Output Format
+
+### Directory Structure
+
+```
+output_directory/
+├── caa_dataset_20250107_143022.jsonl            # Main dataset file (timestamped)
+└── caa_dataset_20250107_143022.checkpoint.json  # Checkpoint file
+```
+
+### JSONL Format
+
+Each line in the dataset file contains:
+
+```json
+{
+  "situation": "Alice is at a party.\nBob: Hi, how are you?",
+  "char_name": "Alice",
+  "positive": "I'm so excited to be here! Want to dance?",
+  "neutral": "I'm fine, thanks. Just looking around."
+}
+```
+
+**Fields:**
+- `situation`: The conversational scenario and context
+- `char_name`: Character name for the response
+- `positive`: Full text of the positive personality answer
+- `neutral`: Full text of the neutral personality answer
+
+**Key Benefits:**
+- ✅ **Clean data structure**: No template-generated text in dataset
+- ✅ **Smaller file size**: ~40% reduction compared to old versions
+- ✅ **Flexible formatting**: Prompts built at inference time
+- ✅ **Better maintainability**: Raw components easier to inspect and modify
+- ✅ **Paper alignment**: Directly stores answer texts as in BiPO paper
+
+### Checkpoint Format
+
+The checkpoint file contains:
+
+```json
+{
+  "num_generated": 500,
+  "output_file": "c:/work/psyctl/dataset/caa_dataset_20250107_143022.jsonl",
+  "timestamp": "2025-01-07T14:35:22.123456"
+}
+```
+
+## Performance Optimization
+
+### Batch Processing
+
+The dataset builder uses batch processing for improved GPU utilization:
+
+**Configure batch size:**
+```powershell
+# Windows
+$env:PSYCTL_INFERENCE_BATCH_SIZE = "32"
+
+# Linux/macOS
+export PSYCTL_INFERENCE_BATCH_SIZE="32"
+```
+
+**Recommended batch sizes:**
+- High-end GPUs (24GB+ VRAM): 32-64
+- Mid-range GPUs (8-16GB VRAM): 16-32
+- Low-end GPUs (4-8GB VRAM): 8-16
+- CPU: 4-8
+
+
+## Checkpoint and Resume
+
+### Automatic Checkpointing
+
+The dataset builder automatically saves checkpoints during generation:
+
+**Default behavior:**
+- Checkpoint saved every 100 samples (configurable)
+- Checkpoint file: `caa_dataset_{timestamp}.checkpoint.json`
+- Output file: `caa_dataset_{timestamp}.jsonl`
+
+**Configure checkpoint interval:**
+```powershell
+# Save checkpoint every 50 samples
+$env:PSYCTL_CHECKPOINT_INTERVAL = "50"
+
+# Save checkpoint every 200 samples
+$env:PSYCTL_CHECKPOINT_INTERVAL = "200"
+```
+
+### Resume from Checkpoint
+
+If dataset generation is interrupted, simply re-run the same command:
+
+```bash
+# Original command
+psyctl dataset.build.steer \
+  --model "google/gemma-2-2b-it" \
+  --personality "Extroversion" \
+  --output "./dataset/extroversion"
+
+# After interruption, run the same command
+# It will automatically detect and resume from the latest checkpoint
+```
+
+**Resume behavior:**
+- Automatically detects existing checkpoints
+- Loads progress from latest checkpoint
+- Continues from last saved sample
+- Preserves all previous work
+
+### Manual Checkpoint Management
+
+**Check checkpoint status:**
+```powershell
+# Windows
+dir ./dataset/extroversion/*.checkpoint.json
+
+# Linux/macOS
+ls ./dataset/extroversion/*.checkpoint.json
+```
+
+**View checkpoint contents:**
+```powershell
+# Check number of samples generated
+type ./dataset/extroversion/caa_dataset_*.checkpoint.json
+```
+
+## Uploading to HuggingFace Hub
+
+Upload generated datasets to HuggingFace Hub with automatic dataset card generation.
+
+### Prerequisites
+
+Set your HuggingFace token ([get one here](https://huggingface.co/settings/tokens)):
+```bash
+export HF_TOKEN="hf_xxxxxxxxxxxx"  # Linux/macOS
+$env:HF_TOKEN = "hf_xxxxxxxxxxxx"  # Windows
+```
+
+### CLI Usage
+
+```bash
+psyctl dataset.upload \
+  --dataset-file "./results/caa_dataset_*.jsonl" \
+  --repo-id "username/extroversion-dataset" \
+  --license "mit"
+```
+
+**Options:**
+- `--dataset-file`: Path to JSONL file (required)
+- `--repo-id`: HuggingFace repo `username/name` (required)
+- `--private`: Make repository private
+- `--license`: License (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')
+
+**Features:**
+- Automatic dataset card generation with PSYCTL branding
+- Metadata tracking (personality, model, sample count, source dataset)
+- Usage instructions and paper references included
+
+## Adding Custom Datasets
+
+To use a custom Hugging Face dataset as the source:
+
+### 1. Upload Dataset to Hugging Face
+
+```python
+from datasets import Dataset
+import pandas as pd
+
+# Create your conversational dataset
+data = {
+    'dialogue': ['conversation 1...', 'conversation 2...'],
+    'narrative': ['narrative 1...', 'narrative 2...'],
+    # ... other fields
+}
+
+df = pd.DataFrame(data)
+dataset = Dataset.from_pandas(df)
+
+# Upload to Hugging Face
+dataset.push_to_hub("username/my-conversations")
+```
+
+### 2. Use in Dataset Building
+
+```bash
+psyctl dataset.build.steer \
+  --dataset "username/my-conversations" \
+  --model "google/gemma-2-2b-it" \
+  --personality "Extroversion" \
+  --output "./dataset/custom"
+```
+
+### 3. Dataset Requirements
+
+**Minimum requirements:**
+- Accessible via Hugging Face Datasets
+- Contains conversational or scenario data
+- Sufficient samples for meaningful extraction
+
+**Recommended characteristics:**
+- Diverse scenarios covering various social situations
+- Natural language patterns
+- 1000+ samples for robust steering vectors
+- Clean, well-formatted data
+
+### 4. Testing with Small Samples
+
+Test your custom dataset with limited samples first:
+
+```bash
+psyctl dataset.build.steer \
+  --dataset "username/my-conversations" \
+  --model "google/gemma-3-270m-it" \
+  --personality "Extroversion" \
+  --output "./dataset/test" \
+  --limit-samples 10
+```
+
+## Implementation Details
+
+The dataset builder uses P2 (Personality Prompt) to generate personality-specific character descriptions and creates contrastive positive/neutral response pairs. Data is processed in batches with automatic checkpointing.
+
+## Troubleshooting
+
+**Out of Memory:** Reduce batch size via `$env:PSYCTL_INFERENCE_BATCH_SIZE = "8"`
+
+**Dataset Not Found:** Verify dataset exists at HuggingFace and HF_TOKEN is set
+
+**Slow Generation:** Increase batch size, use smaller model, or check GPU utilization
+
+For more issues, see [Troubleshooting Guide](./TROUBLESHOOTING.md) and [Configuration Guide](./CONFIGURATION.md).
+
+## Best Practices
+
+- Use instruction-tuned models (`*-it`, `*-Instruct`)
+- Start with smaller models (270M-2B) for testing
+- Use single personality traits for clearer results
+- Monitor GPU memory usage and adjust batch size accordingly
+
+**Recommended models:**
+- `google/gemma-2-2b-it` (fast)
+- `meta-llama/Llama-3.2-3B-Instruct` (balanced)
+- `google/gemma-3-27b-it` (high quality)
+
+### Custom Templates
+
+PSYCTL supports custom Jinja2 templates for different languages or prompt styles.
+
+**Usage:**
+```bash
+psyctl dataset.build.steer \
+  --caa-question-template "./templates/custom.j2" \
+  --roleplay-prompt-template "./templates/roleplay.j2" \
+  --model "google/gemma-2-2b-it" \
+  --personality "Extroversion" \
+  --output "./dataset/custom"
+```
+
+Default templates are in `src/psyctl/templates/`. See examples in that directory for variable reference.
+
+
+## References
+
+- [SODA Dataset](https://huggingface.co/datasets/allenai/soda)
+- [CAA Paper: Contrastive Activation Addition](https://arxiv.org/abs/2312.06681)
+- [P2 Paper: Evaluating and Inducing Personality](https://arxiv.org/abs/2206.07550)
+- [PSYCTL Steering Extraction](./EXTRACT.STEERING.md)

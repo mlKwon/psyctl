@@ -17,11 +17,19 @@ A tool that supports steering LLMs to exhibit specific personalities. The goal i
 
 ## 📚 Documentation
 
-For detailed documentation on specific features:
+### Core Guides
 
-- **[Build CAA Dataset](./docs/DATASET.BUILD.CAA.md)** - Complete guide to generating CAA datasets for steering vector extraction
-- **[Extract Steering Vectors](./docs/EXTRACT.STEERING.md)** - Complete guide to extracting steering vectors using various methods
-- **[Steering Experiment](./docs/STEERING.md)** - Complete guide to applying steering vectors for text generation
+- **[Build Steering Dataset](./docs/DATASET.BUILD.STEER.md)** - Generate steering datasets for vector extraction
+- **[Extract Steering Vectors](./docs/EXTRACT.STEERING.md)** - Extract steering vectors using CAA, BiPO, and other methods
+- **[Steering Experiment](./docs/STEERING.md)** - Apply steering vectors to generate text with personality
+
+### Additional Resources
+
+- **[Configuration](./docs/CONFIGURATION.md)** - Environment variables and performance tuning
+- **[OpenRouter Integration](./docs/OPENROUTER.md)** - Use cloud APIs instead of local GPU
+- **[Community Datasets](./docs/COMMUNITY.DATASETS.md)** - Pre-built datasets and registry
+- **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Contributing](./docs/CONTRIBUTING.md)** - Development guide and contribution guidelines
 
 ---
 
@@ -75,7 +83,7 @@ python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
 
 ```bash
 # 1. Generate dataset
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --model "google/gemma-3-27b-it" \
   --personality "Extroversion, Machiavellism" \
   --output "./dataset/cca"
@@ -105,82 +113,17 @@ psyctl benchmark \
   --inventory IPIP-NEO
 ```
 
-### 📋 Detailed Command Guide
+### 📋 Commands Overview
 
-#### 1. Dataset Generation (`dataset.build.caa`)
+PSYCTL provides 5 main commands. See documentation links above for detailed usage.
 
-Generates CAA datasets for steering vector extraction.
-
-```bash
-psyctl dataset.build.caa \
-  --model "google/gemma-3-27b-it" \
-  --personality "Extroversion, Machiavellism" \
-  --output "./dataset/cca"
-```
-
-See [Build CAA Dataset](./docs/DATASET.BUILD.CAA.md) for detailed documentation.
-
-#### 2. Dataset Upload (`dataset.upload`)
-
-Upload CAA datasets to HuggingFace Hub with automatic PSYCTL branding.
-
-```bash
-psyctl dataset.upload \
-  --dataset-file "./dataset/cca/caa_dataset_20250107_143022.jsonl" \
-  --repo-id "username/extroversion-caa" \
-  --private
-```
-
-**Features:**
-- Automatic dataset card generation with PSYCTL logo
-- Comprehensive metadata (personality, model, sample count)
-- Usage instructions for vector extraction
-- Public or private repository options
-
-See [Build CAA Dataset - Uploading to HuggingFace Hub](./docs/DATASET.BUILD.CAA.md#uploading-to-huggingface-hub) for detailed documentation.
-
-#### 3. Steering Vector Extraction (`extract.steering`)
-
-Extracts steering vectors from model activations.
-
-```bash
-psyctl extract.steering \
-  --model "meta-llama/Llama-3.2-3B-Instruct" \
-  --layer "model.layers[13].mlp.down_proj" \
-  --dataset "./dataset/cca" \
-  --output "./steering_vector/out.safetensors"
-```
-
-See [Extract Steering Vectors](./docs/EXTRACT.STEERING.md) for detailed documentation.
-
-#### 4. Steering Experiment (`steering`)
-
-Applies extracted steering vectors to generate text with personality steering.
-
-```bash
-psyctl steering \
-  --model "meta-llama/Llama-3.2-3B-Instruct" \
-  --steering-vector "./steering_vector/out.safetensors" \
-  --input-text "Tell me about yourself"
-```
-
-See [Steering Experiment](./docs/STEERING.md) for detailed documentation.
-
-#### 5. Inventory Test (`benchmark`)
-
-Measures personality changes using psychological inventories.
-
-```bash
-psyctl benchmark \
-  --model "meta-llama/Llama-3.2-3B-Instruct" \
-  --steering-vector "./steering_vector/out.safetensors" \
-  --inventory IPIP-NEO
-```
-
-**Parameters:**
-- `--model`: Model name to use
-- `--steering-vector`: Steering vector file path
-- `--inventory`: Inventory name to use
+| Command | Description | Documentation |
+|---------|-------------|---------------|
+| `dataset.build.steer` | Generate steering datasets | [Guide](./docs/DATASET.BUILD.STEER.md) |
+| `dataset.upload` | Upload datasets to HuggingFace | [Guide](./docs/DATASET.BUILD.STEER.md#uploading-to-huggingface-hub) |
+| `extract.steering` | Extract steering vectors | [Guide](./docs/EXTRACT.STEERING.md) |
+| `steering` | Apply steering to generation | [Guide](./docs/STEERING.md) |
+| `benchmark` | Test with psychological inventories | Coming soon |
 
 ### 📊 Supported Inventories
 
@@ -196,123 +139,24 @@ psyctl benchmark \
 
 ### ⚙️ Configuration
 
-PSYCTL uses environment variables for configuration. 
-
-#### Available Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HF_TOKEN` | None | Hugging Face API token |
-| `PSYCTL_OUTPUT_DIR` | `./output` | Output directory |
-| `PSYCTL_DATASET_DIR` | `./dataset` | Dataset storage directory |
-| `PSYCTL_STEERING_VECTOR_DIR` | `./steering_vector` | Steering vector storage |
-| `PSYCTL_RESULTS_DIR` | `./results` | Results storage |
-| `PSYCTL_CACHE_DIR` | `./temp` | Cache directory for models/datasets |
-| `PSYCTL_LOG_LEVEL` | `INFO` | Logging level |
-| `PSYCTL_LOG_FILE` | None | Log file path (optional) |
-| **Batch Processing Settings** | | |
-| `PSYCTL_INFERENCE_BATCH_SIZE` | `16` | Batch size for model inference |
-| `PSYCTL_MAX_WORKERS` | `4` | Maximum number of worker threads |
-| `PSYCTL_CHECKPOINT_INTERVAL` | `100` | Save checkpoint every N samples |
-
-#### Setting Environment Variables
-
-**Windows (PowerShell):**
-```powershell
-# Basic settings
-$env:HF_TOKEN = "your_huggingface_token_here"
-$env:PSYCTL_LOG_LEVEL = "DEBUG"
-
-# Batch processing optimization
-$env:PSYCTL_INFERENCE_BATCH_SIZE = "32"  # Increase for better GPU utilization
-$env:PSYCTL_CHECKPOINT_INTERVAL = "50"   # Save checkpoints more frequently
-```
-
-**Linux/macOS:**
-```bash
-# Basic settings
-export HF_TOKEN="your_huggingface_token_here"
-export PSYCTL_LOG_LEVEL="DEBUG"
-
-# Batch processing optimization
-export PSYCTL_INFERENCE_BATCH_SIZE="32"  # Increase for better GPU utilization
-export PSYCTL_CHECKPOINT_INTERVAL="50"   # Save checkpoints more frequently
-```
-
-#### Hugging Face Token Setup
-
-Some models require a Hugging Face token for access:
-
-1. Generate a token from [Hugging Face Settings](https://huggingface.co/settings/tokens)
-2. Set environment variable:
-   - `$env:HF_TOKEN="your_token_here"` (Windows)
-   - `export HF_TOKEN="your_token_here"` (Linux/macOS)
-
-#### Directory Configuration
-
-All directories are automatically created when needed. You can customize paths using environment variables:
-
-```powershell
-# Custom directory configuration (Windows)
-$env:PSYCTL_CACHE_DIR = "D:\ml_cache"
-$env:PSYCTL_RESULTS_DIR = "C:\projects\results"
-```
+PSYCTL uses environment variables for configuration. **Required:**
 
 ```bash
-# Custom directory configuration (Linux/macOS)
-export PSYCTL_CACHE_DIR="/data/ml_cache"
-export PSYCTL_RESULTS_DIR="/projects/results"
+# Get your token from https://huggingface.co/settings/tokens
+export HF_TOKEN="your_huggingface_token_here"  # Linux/macOS
+$env:HF_TOKEN = "your_token_here"              # Windows
 ```
 
-#### Performance Optimization
+For detailed configuration options (directories, performance tuning, logging), see [Configuration Guide](./docs/CONFIGURATION.md).
 
-**Batch Processing Optimization:**
-
-The dataset generation now supports batch processing for significantly improved performance. Configure these settings based on your hardware:
-
-```powershell
-# For high-end GPUs (24GB+ VRAM)
-$env:PSYCTL_INFERENCE_BATCH_SIZE = "32"
-
-# For mid-range GPUs (8-16GB VRAM)
-$env:PSYCTL_INFERENCE_BATCH_SIZE = "16"
-
-# For low-end GPUs (4-8GB VRAM)
-$env:PSYCTL_INFERENCE_BATCH_SIZE = "8"
-
-# Enable performance features
-$env:PSYCTL_CHECKPOINT_INTERVAL = "100"  # Adjust based on stability needs
-```
-
-**Performance Tips:**
-- Larger batch sizes improve GPU utilization but require more VRAM
-- Checkpoint intervals of 50-100 samples balance performance and recovery
-- Monitor GPU memory usage to find optimal batch size for your hardware
-
-### 📝 Examples
-
-#### Example Scripts
-
-The [examples/](examples/) directory contains ready-to-run Python scripts demonstrating complete PSYCTL workflows, including dataset generation, vector extraction, and steering application.
-
-**Running Examples:**
-```bash
-# Set up environment variables
-echo "HF_TOKEN=your_token_here" > .env
-echo "OPENROUTER_API_KEY=your_key_here" >> .env
-
-# Run an example
-uv run python examples/end_to_end_simple.py
-```
-
-#### Complete Workflow Example
+### 📝 Complete Workflow Example
 
 ```bash
 # 1. Generate dataset for extroversion personality
 # Set batch size for optimal performance
 export PSYCTL_INFERENCE_BATCH_SIZE="16"
 
-psyctl dataset.build.caa \
+psyctl dataset.build.steer \
   --model "meta-llama/Llama-3.2-3B-Instruct" \
   --personality "Extroversion" \
   --output "./dataset/extroversion" \
@@ -338,193 +182,19 @@ psyctl benchmark \
   --inventory IPIP-NEO
 ```
 
-#### Using as Python Library
-
-PSYCTL can be used not only as a CLI tool but also as a Python library:
-
-```python
-from psyctl import DatasetBuilder, P2, LLMLoader, Settings
-from pathlib import Path
-
-# Load settings
-settings = Settings()
-
-# Create model loader
-loader = LLMLoader()
-
-# Create dataset builder
-builder = DatasetBuilder()
-
-# Generate personality prompts using P2 class
-model, tokenizer = loader.load_model("google/gemma-3-270m-it")
-p2 = P2(model, tokenizer)
-
-# Generate character descriptions by personality
-extroverted_desc = p2.build("Alice", "Extroversion")
-introverted_desc = p2.build("Alice", "Introversion")
-
-print("Extroverted Alice:", extroverted_desc)
-print("Introverted Alice:", introverted_desc)
-
-# Generate CAA dataset
-num_samples = builder.build_caa_dataset(
-    model="google/gemma-3-270m-it",
-    personality="Extroversion",
-    output_dir=Path("./dataset"),
-    limit_samples=100
-)
-
-print(f"Generated samples: {num_samples}")
-```
-
-#### Advanced Usage Example
-
-```python
-import psyctl
-from psyctl import get_logger
-
-# Setup logger
-logger = get_logger("my_app")
-
-# Generate datasets for multiple personality traits
-personalities = ["Extroversion", "Introversion", "Machiavellianism"]
-
-for personality in personalities:
-    logger.info(f"Creating dataset for {personality}")
-    
-    builder = psyctl.DatasetBuilder()
-    num_samples = builder.build_caa_dataset(
-        model="google/gemma-3-270m-it",
-        personality=personality,
-        output_dir=Path(f"./dataset/{personality.lower()}"),
-        limit_samples=50
-    )
-    
-    logger.success(f"Created {num_samples} samples for {personality}")
-```
+**More Examples:**
+- See [examples/](examples/) directory for Python library usage
+- Check documentation links above for detailed guides
 
 ---
 
-## 🔧 Developer Guide
+## 🤝 Contributing
 
-### 📁 Project Structure
-
-```
-psyctl/
-├── pyproject.toml              # Project configuration and dependencies
-├── README.md                   # User guide
-├── .gitignore                  # Git ignore file
-├── src/                        # Source code
-│   └── psyctl/                 # Main package
-│       ├── __init__.py
-│       ├── cli.py              # CLI entry point
-│       ├── config.py           # Configuration management
-│       ├── commands/           # Command modules
-│       │   ├── __init__.py
-│       │   ├── dataset.py      # Dataset generation
-│       │   ├── extract.py      # Steering vector extraction
-│       │   ├── steering.py     # Steering experiments
-│       │   └── benchmark.py    # Inventory tests
-│       ├── core/               # Core logic
-│       │   ├── __init__.py
-│       │   ├── dataset_builder.py
-│       │   ├── steering_extractor.py
-│       │   ├── steering_applier.py
-│       │   ├── inventory_tester.py
-│       │   ├── prompt.py       # P2 implementation
-│       │   ├── utils.py
-│       │   └── logger.py       # Logging configuration
-│       ├── models/             # Model-related
-│       │   ├── __init__.py
-│       │   ├── llm_loader.py
-│       │   └── vector_store.py
-│       └── data/               # Data-related
-│           ├── __init__.py
-│           └── inventories/    # Inventory data
-│               ├── __init__.py
-│               └── ipip_neo.py
-├── tests/                      # Test code
-│   ├── __init__.py
-│   ├── conftest.py
-│   ├── test_cli.py
-│   └── test_commands/
-│       ├── __init__.py
-│       ├── test_dataset_builder.py
-│       └── test_prompt.py
-└── scripts/                    # Development scripts
-    ├── install-dev.ps1
-    ├── build.ps1
-    ├── test.ps1
-    └── format.ps1
-```
-
-### 🔄 Development Workflow
-
-#### 1. Development Environment Setup
-
-```powershell
-# Automatic development environment installation
-& .\scripts\install-dev.ps1
-```
-
-#### 2. Branch Creation
-
-```bash
-# Create new branch from main
-git checkout main
-git pull origin main
-git checkout -b feature/your-feature-name
-```
-
-#### 3. Development and Testing
-
-```powershell
-# Code formatting
-& .\scripts\format.ps1
-
-# Run tests
-& .\scripts\test.ps1
-
-# Complete build process (formatting + linting + testing + installation)
-& .\scripts\build.ps1
-```
-
-### 📜 Development Scripts
-
-The project includes PowerShell scripts to automate development tasks:
-
-#### `install-dev.ps1` - Development Environment Installation
-```powershell
-& .\scripts\install-dev.ps1
-```
-- Automatic uv package manager installation
-- Virtual environment creation and activation
-- Project dependency installation
-
-#### `format.ps1` - Code Formatting
-```powershell
-& .\scripts\format.ps1
-```
-- Code formatting using Black
-- Import sorting using isort
-- Applied to entire `src/` directory
-
-#### `test.ps1` - Test Execution
-```powershell
-& .\scripts\test.ps1
-```
-- Test execution using pytest
-- Coverage report generation (`htmlcov/` directory)
-- Detailed test result output
-
-#### `build.ps1` - Complete Build Process
-```powershell
-& .\scripts\build.ps1
-```
-- Code formatting (Black + isort)
-- Linting (flake8 + mypy)
-- Test execution (pytest)
-- Package installation (`uv pip install -e .`)
+Contributions are welcome! See [Contributing Guide](./docs/CONTRIBUTING.md) for:
+- Development environment setup
+- Code style and standards
+- Testing guidelines
+- Pull request process
 
 ## Key papers
 - [Evaluating and Inducing Personality in Pre-trained Language Models](https://arxiv.org/abs/2206.07550)

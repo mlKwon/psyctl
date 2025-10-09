@@ -604,4 +604,4 @@ Hooks are automatically cleaned up after generation using try/finally blocks to 
 ## See Also
 
 - [Extract Steering Vectors](./EXTRACT.STEERING.md) - How to create steering vectors
-- [Build CAA Dataset](./DATASET.BUILD.CAA.md) - How to prepare training data
+- [Build Steering Dataset](./DATASET.BUILD.STEER.md) - How to prepare training data
