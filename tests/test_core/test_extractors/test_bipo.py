@@ -54,12 +54,14 @@ def mock_dataset():
     """Create a mock CAA dataset."""
     return [
         {
-            "question": "How do you feel about parties?",
+            "situation": "You are at a party.\nSomeone asks: How do you feel about parties?",
+            "char_name": "Alice",
             "positive": "I love parties and meeting new people!",
             "neutral": "Parties are okay."
         },
         {
-            "question": "Do you enjoy socializing?",
+            "situation": "You are meeting a friend.\nFriend asks: Do you enjoy socializing?",
+            "char_name": "Bob",
             "positive": "I enjoy socializing very much!",
             "neutral": "I sometimes socialize."
         }
@@ -109,10 +111,11 @@ class TestBiPOVectorExtractor:
         samples = extractor._prepare_dataset(mock_dataset, mock_tokenizer)
 
         assert len(samples) == 2
-        assert all(len(sample) == 3 for sample in samples)
-        assert samples[0][0] == "How do you feel about parties?"
-        assert samples[0][1] == "I love parties and meeting new people!"
-        assert samples[0][2] == "Parties are okay."
+        assert all(len(sample) == 4 for sample in samples)  # (situation, char_name, positive, neutral)
+        assert "party" in samples[0][0].lower()  # situation
+        assert samples[0][1] == "Alice"  # char_name
+        assert samples[0][2] == "I love parties and meeting new people!"  # positive
+        assert samples[0][3] == "Parties are okay."  # neutral
 
     def test_get_response_logprob_no_steering(
         self, extractor, mock_model, mock_tokenizer
@@ -123,7 +126,8 @@ class TestBiPOVectorExtractor:
         logprob = extractor._get_response_logprob(
             model=mock_model,
             tokenizer=mock_tokenizer,
-            question="Test question",
+            situation="Test situation",
+            char_name="TestChar",
             response="Test response",
             layer_module=layer_module,
             steering=None
@@ -142,7 +146,8 @@ class TestBiPOVectorExtractor:
         logprob = extractor._get_response_logprob(
             model=mock_model,
             tokenizer=mock_tokenizer,
-            question="Test question",
+            situation="Test situation",
+            char_name="TestChar",
             response="Test response",
             layer_module=layer_module,
             steering=steering_vec
@@ -177,7 +182,8 @@ class TestBiPOVectorExtractor:
         logprob = extractor._get_response_logprob(
             model=model,
             tokenizer=mock_tokenizer,
-            question="Test",
+            situation="Test situation",
+            char_name="TestChar",
             response="Response",
             layer_module=layer_module,
             steering=steering_vec
@@ -188,7 +194,7 @@ class TestBiPOVectorExtractor:
     def test_compute_bipo_loss(
         self, extractor, mock_model, mock_tokenizer, mock_dataset
     ):
-        """Test BiPO loss computation."""
+        """Test BiPO loss computation (full text only)."""
         layer_module = MagicMock(spec=nn.Module)
         v = torch.randn(128, requires_grad=True)
         batch = extractor._prepare_dataset(mock_dataset, mock_tokenizer)
@@ -245,6 +251,9 @@ class TestBiPOVectorExtractor:
                 model=model,
                 tokenizer=tokenizer,
                 layer_module=layer_module,
+                layer_str="test.layer",
+                layer_idx=0,
+                total_layers=1,
                 dataset=minimal_dataset,
                 batch_size=1,
                 lr=5e-4,
@@ -264,7 +273,8 @@ class TestBiPOVectorExtractor:
                 mock_loader = MagicMock()
                 mock_loader.load.return_value = [
                     {
-                        "question": "Q1",
+                        "situation": "Test situation",
+                        "char_name": "TestChar",
                         "positive": "P1",
                         "neutral": "N1"
                     }
@@ -307,7 +317,8 @@ class TestBiPOVectorExtractor:
                 mock_loader = MagicMock()
                 mock_loader.load.return_value = [
                     {
-                        "question": "Q1",
+                        "situation": "Test situation",
+                        "char_name": "TestChar",
                         "positive": "P1",
                         "neutral": "N1"
                     }

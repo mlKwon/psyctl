@@ -143,25 +143,31 @@ def test_gen_caa_data(dataset_builder_instance):
 def test_save_sample_to_jsonl(dataset_builder_instance, tmp_path):
     """Test _save_sample_to_jsonl method."""
     logger.info("Testing _save_sample_to_jsonl method")
-    
-    sample = {"question": "test question", "positive": "(1", "neutral": "(2"}
+
+    sample = {
+        "situation": "test situation",
+        "char_name": "Alice",
+        "positive": "positive answer",
+        "neutral": "neutral answer"
+    }
     output_file = tmp_path / "test_output.jsonl"
-    
+
     dataset_builder_instance._save_sample_to_jsonl(sample, output_file)
-    
+
     # Check that file was created
     assert output_file.exists()
-    
+
     # Check file content
     with open(output_file, "r", encoding="utf-8") as f:
         content = f.read().strip()
-    
-    # Should contain the sample as JSON
-    assert '"question"' in content
-    assert '"test question"' in content
-    assert '"(1"' in content
-    assert '"(2"' in content
-    
+        loaded_sample = json.loads(content)
+
+    # Verify format
+    assert loaded_sample["situation"] == "test situation"
+    assert loaded_sample["char_name"] == "Alice"
+    assert loaded_sample["positive"] == "positive answer"
+    assert loaded_sample["neutral"] == "neutral answer"
+
     logger.success("_save_sample_to_jsonl test passed")
 
 
@@ -203,12 +209,13 @@ def test_build_caa_dataset_real_integration(dataset_builder_instance, model_and_
         
         # Should have 10 lines (one for each sample)
         assert len(lines) == 10
-        
-        # Check that each line contains valid JSON        
+
+        # Check that each line contains valid JSON
         for line in lines:
             sample = json.loads(line.strip())
             assert isinstance(sample, dict)
-            assert "question" in sample
+            assert "situation" in sample
+            assert "char_name" in sample
             assert "positive" in sample
             assert "neutral" in sample
     

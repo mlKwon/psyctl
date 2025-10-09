@@ -976,20 +976,18 @@ class DatasetBuilder:
 
             sample = {}
             sample_idx = start_idx + i
+
+            # Store raw components only
+            sample["situation"] = situation
+            sample["char_name"] = char_name
+
             if sample_idx % 2 == 0:
-                question = self._gen_caa_data(
-                    char_name, situation, answer_positive, answer_neutral
-                )
-                sample["question"] = question
-                sample["positive"] = "(1"
-                sample["neutral"] = "(2"
+                sample["positive"] = answer_positive
+                sample["neutral"] = answer_neutral
             else:
-                question = self._gen_caa_data(
-                    char_name, situation, answer_neutral, answer_positive
-                )
-                sample["question"] = question
-                sample["positive"] = "(2"
-                sample["neutral"] = "(1"
+                # Swap to balance dataset
+                sample["positive"] = answer_neutral
+                sample["neutral"] = answer_positive
 
             samples.append(sample)
 

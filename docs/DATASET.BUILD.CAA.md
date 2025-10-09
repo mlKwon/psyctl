@@ -314,16 +314,25 @@ Each line in the dataset file contains:
 
 ```json
 {
-  "question": "[Situation]\nAlice is at a party...\n[Question]\nWhat should Alice say?\n1. Let's all dance together!\n2. I prefer to observe quietly.\n[Answer]",
-  "positive": "(1",
-  "neutral": "(2"
+  "situation": "Alice is at a party.\nBob: Hi, how are you?",
+  "char_name": "Alice",
+  "positive": "I'm so excited to be here! Want to dance?",
+  "neutral": "I'm fine, thanks. Just looking around."
 }
 ```
 
 **Fields:**
-- `question`: The scenario description with answer options
-- `positive`: Answer option exhibiting the target personality
-- `neutral`: Answer option with neutral personality expression
+- `situation`: The conversational scenario and context
+- `char_name`: Character name for the response
+- `positive`: Full text of the positive personality answer
+- `neutral`: Full text of the neutral personality answer
+
+**Key Benefits:**
+- ✅ **Clean data structure**: No template-generated text in dataset
+- ✅ **Smaller file size**: ~40% reduction compared to old versions
+- ✅ **Flexible formatting**: Prompts built at inference time
+- ✅ **Better maintainability**: Raw components easier to inspect and modify
+- ✅ **Paper alignment**: Directly stores answer texts as in BiPO paper
 
 ### Checkpoint Format
 

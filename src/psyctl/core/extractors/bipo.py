@@ -66,12 +66,14 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         """
         Extract steering vectors using BiPO optimization.
 
+        BiPO always uses full answer texts for preference learning.
+
         Args:
             model: Loaded language model
             tokenizer: Model tokenizer
             layers: List of layer paths (e.g., ["model.layers[13].mlp"])
-            dataset_path: Path to CAA dataset or HuggingFace dataset name (optional if dataset provided)
-            dataset: Pre-loaded dataset as list of dicts (optional if dataset_path provided)
+            dataset_path: Path to CAA dataset or HuggingFace dataset name
+            dataset: Pre-loaded dataset as list of dicts
             batch_size: Batch size for training (default: from config)
             normalize: Whether to normalize vectors to unit length
             lr: Learning rate for AdamW optimizer (default: 5e-4)
@@ -87,23 +89,11 @@ class BiPOVectorExtractor(BaseVectorExtractor):
 
         Example:
             >>> extractor = BiPOVectorExtractor()
-            >>> # Using dataset_path
             >>> vectors = extractor.extract(
             ...     model=model,
             ...     tokenizer=tokenizer,
             ...     layers=["model.layers[13].mlp"],
             ...     dataset_path=Path("./dataset/caa"),
-            ...     lr=5e-4,
-            ...     beta=0.1,
-            ...     epochs=10
-            ... )
-            >>> # Using pre-loaded dataset
-            >>> dataset = [{"question": "...", "positive": "...", "neutral": "..."}]
-            >>> vectors = extractor.extract(
-            ...     model=model,
-            ...     tokenizer=tokenizer,
-            ...     layers=["model.layers[13].mlp"],
-            ...     dataset=dataset,
             ...     lr=5e-4,
             ...     beta=0.1,
             ...     epochs=10
@@ -204,6 +194,8 @@ class BiPOVectorExtractor(BaseVectorExtractor):
     ) -> torch.Tensor:
         """
         Train a single steering vector using BiPO optimization.
+
+        BiPO always uses full answer texts for preference learning.
 
         Args:
             model: Language model
@@ -310,23 +302,27 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         """
         Prepare dataset samples for BiPO training.
 
+        BiPO always uses full answer texts for preference learning.
+
         Args:
             dataset: Raw dataset
             tokenizer: Tokenizer
 
         Returns:
-            List of (question, positive_response, neutral_response) tuples
+            List of (situation, char_name, positive_response, neutral_response) tuples
         """
         samples = []
 
         for item in dataset:
-            question = item["question"]
+            situation = item["situation"]
+            char_name = item["char_name"]
             positive = item["positive"]
             neutral = item["neutral"]
 
-            samples.append((question, positive, neutral))
+            samples.append((situation, char_name, positive, neutral))
 
-        self.logger.info(f"Prepared {len(samples)} training samples")
+        self.logger.info(f"Prepared {len(samples)} training samples using full answer texts")
+
         return samples
 
     def _compute_bipo_loss(
@@ -341,11 +337,13 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         """
         Compute BiPO loss for a batch.
 
+        BiPO always uses full text format for preference learning.
+
         Args:
             model: Language model
             tokenizer: Tokenizer
             layer_module: Target layer
-            batch: List of (question, positive, neutral) tuples
+            batch: List of (situation, char_name, positive, neutral) tuples
             v: Current steering vector
             beta: Temperature parameter
 
@@ -356,21 +354,29 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         d = random.choice([-1, 1])
         total_loss = 0.0
 
-        for question, positive_resp, negative_resp in batch:
+        for situation, char_name, positive_resp, negative_resp in batch:
+            # BiPO always uses full text format: evaluate P(full_answer | question)
+            pos_resp_text = positive_resp
+            neg_resp_text = negative_resp
+
             # Original log probabilities
             log_prob_pos_orig = self._get_response_logprob(
-                model, tokenizer, question, positive_resp, layer_module, None
+                model, tokenizer, situation, char_name, pos_resp_text,
+                layer_module, None
             )
             log_prob_neg_orig = self._get_response_logprob(
-                model, tokenizer, question, negative_resp, layer_module, None
+                model, tokenizer, situation, char_name, neg_resp_text,
+                layer_module, None
             )
 
             # Steered log probabilities
             log_prob_pos_steered = self._get_response_logprob(
-                model, tokenizer, question, positive_resp, layer_module, d * v
+                model, tokenizer, situation, char_name, pos_resp_text,
+                layer_module, d * v
             )
             log_prob_neg_steered = self._get_response_logprob(
-                model, tokenizer, question, negative_resp, layer_module, d * v
+                model, tokenizer, situation, char_name, neg_resp_text,
+                layer_module, d * v
             )
 
             # BiPO objective
@@ -387,7 +393,8 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         self,
         model: nn.Module,
         tokenizer: AutoTokenizer,
-        question: str,
+        situation: str,
+        char_name: str,
         response: str,
         layer_module: nn.Module,
         steering: torch.Tensor = None,
@@ -395,19 +402,25 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         """
         Calculate log probability of response tokens.
 
+        BiPO always uses full text format: P(full_answer | question)
+
         Args:
             model: Language model
             tokenizer: Tokenizer
-            question: Question text
-            response: Response text
+            situation: Situation description
+            char_name: Character name
+            response: Full response text
             layer_module: Target layer
             steering: Steering vector to apply (None for no steering)
 
         Returns:
             Sum of log probabilities for response tokens
         """
-        # Format question with chat template if available
-        question_text = self._format_with_chat_template(tokenizer, question)
+        # Build prompt: situation + question + full answer
+        question_text = f"[Situation]\n{situation}\n[Question]\nYou are {char_name}. What would your response be in this situation?\n[Answer]\n"
+
+        # Apply chat template
+        question_text = self._format_with_chat_template(tokenizer, question_text)
         full_text = question_text + response
 
         tokens = tokenizer(

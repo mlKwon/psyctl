@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterator, List, Tuple, Union
 
 from datasets import load_dataset
+from jinja2 import Environment, FileSystemLoader, Template
 from transformers import AutoTokenizer
 
 from psyctl.core.logger import get_logger
@@ -14,17 +15,27 @@ class CAADatasetLoader:
     """
     Load and process CAA (Contrastive Activation Addition) dataset.
 
-    CAA datasets are JSONL files containing contrastive prompt pairs for
-    personality steering vector extraction. Each entry has a question and
-    two answer options (positive and neutral personality).
+    Dataset format:
+    {
+        "situation": "Conversation context...",
+        "char_name": "Character name",
+        "positive": "Full positive personality answer",
+        "neutral": "Full neutral personality answer"
+    }
 
     Attributes:
         logger: Logger instance for debugging
+        jinja_env: Jinja2 environment for template loading
     """
 
     def __init__(self):
-        """Initialize CAADatasetLoader with logger."""
+        """Initialize CAADatasetLoader with logger and Jinja2 environment."""
         self.logger = get_logger("caa_dataset_loader")
+
+        # Setup Jinja2 environment for template loading
+        template_dir = Path(__file__).parent.parent / "templates"
+        self.jinja_env = Environment(loader=FileSystemLoader(str(template_dir)))
+        self.logger.debug(f"Template directory: {template_dir}")
 
     def load(self, dataset_path: Union[Path, str]) -> List[dict]:
         """
@@ -95,7 +106,7 @@ class CAADatasetLoader:
                     entry = json.loads(line.strip())
 
                     # Validate required fields
-                    required_fields = ['question', 'positive', 'neutral']
+                    required_fields = ['situation', 'char_name', 'positive', 'neutral']
                     missing_fields = [
                         field for field in required_fields if field not in entry
                     ]
@@ -121,14 +132,17 @@ class CAADatasetLoader:
         return dataset
 
     def create_prompts(
-        self, dataset: List[dict], tokenizer: AutoTokenizer
+        self, dataset: List[dict], tokenizer: AutoTokenizer, format_type: str = "index"
     ) -> Tuple[List[str], List[str]]:
         """
         Create positive and neutral prompt pairs from dataset.
 
         Args:
-            dataset: List of dataset entries (from load())
+            dataset: List of dataset entries
             tokenizer: Tokenizer for applying chat template
+            format_type: Prompt format type
+                - "index": Multiple choice with indices (for CAA)
+                - "direct": Direct answer (for BiPO full text)
 
         Returns:
             Tuple of (positive_prompts, neutral_prompts)
@@ -138,23 +152,36 @@ class CAADatasetLoader:
             >>> dataset = loader.load(Path("./dataset/caa"))
             >>> pos_prompts, neu_prompts = loader.create_prompts(dataset, tokenizer)
         """
-        self.logger.info(f"Creating prompts from {len(dataset)} dataset entries")
+        self.logger.info(f"Creating prompts from {len(dataset)} dataset entries (format: {format_type})")
 
         positive_prompts = []
         neutral_prompts = []
 
         for entry in dataset:
-            question = entry['question']
+            situation = entry['situation']
+            char_name = entry['char_name']
             positive_answer = entry['positive']
             neutral_answer = entry['neutral']
 
-            # Create full prompts by combining question with answers
-            positive_prompt = self._build_prompt(
-                question, positive_answer, tokenizer
-            )
-            neutral_prompt = self._build_prompt(
-                question, neutral_answer, tokenizer
-            )
+            # Create prompts based on format type
+            if format_type == "index":
+                # CAA format: show both answers with indices, append index
+                positive_prompt = self._build_prompt_with_choices(
+                    situation, char_name, positive_answer, neutral_answer, "(1", tokenizer
+                )
+                neutral_prompt = self._build_prompt_with_choices(
+                    situation, char_name, positive_answer, neutral_answer, "(2", tokenizer
+                )
+            elif format_type == "direct":
+                # BiPO format: direct answer without choices
+                positive_prompt = self._build_prompt_direct(
+                    situation, char_name, positive_answer, tokenizer
+                )
+                neutral_prompt = self._build_prompt_direct(
+                    situation, char_name, neutral_answer, tokenizer
+                )
+            else:
+                raise ValueError(f"Unknown format_type: {format_type}")
 
             positive_prompts.append(positive_prompt)
             neutral_prompts.append(neutral_prompt)
@@ -164,24 +191,37 @@ class CAADatasetLoader:
         )
         return positive_prompts, neutral_prompts
 
-    def _build_prompt(
-        self, question: str, answer: str, tokenizer: AutoTokenizer
+    def _build_prompt_with_choices(
+        self, situation: str, char_name: str, answer_1: str, answer_2: str,
+        selected: str, tokenizer: AutoTokenizer
     ) -> str:
         """
-        Build a complete prompt from question and answer.
+        Build CAA-style prompt with multiple choices.
 
         Args:
-            question: Question text from dataset
-            answer: Answer option (e.g., "(1" or "(2")
+            situation: Situation description
+            char_name: Character name
+            answer_1: First answer option
+            answer_2: Second answer option
+            selected: Which answer is selected ("(1" or "(2")
             tokenizer: Tokenizer for chat template
 
         Returns:
-            Complete prompt string ready for inference
+            Complete prompt with choices and selection
         """
-        # Combine question with answer
-        full_text = f"{question}{answer}"
+        # Load template
+        template = self.jinja_env.get_template('caa_question.j2')
+        question = template.render(
+            char_name=char_name,
+            situation=situation.strip(),
+            answer_1=answer_1.strip().replace("\n", ""),
+            answer_2=answer_2.strip().replace("\n", "")
+        )
 
-        # Try to apply chat template if available
+        # Append selected index
+        full_text = f"{question}{selected}"
+
+        # Apply chat template if available
         try:
             messages = [{"role": "user", "content": full_text}]
             prompt = tokenizer.apply_chat_template(
@@ -190,10 +230,39 @@ class CAADatasetLoader:
                 add_generation_prompt=False,
             )
         except Exception as e:
-            # Fallback to raw text if chat template fails
-            self.logger.debug(
-                f"Chat template failed, using raw text: {e}"
+            self.logger.debug(f"Chat template failed, using raw text: {e}")
+            prompt = full_text
+
+        return prompt
+
+    def _build_prompt_direct(
+        self, situation: str, char_name: str, answer: str, tokenizer: AutoTokenizer
+    ) -> str:
+        """
+        Build BiPO-style prompt with direct answer (no choices shown).
+
+        Args:
+            situation: Situation description
+            char_name: Character name
+            answer: The answer text
+            tokenizer: Tokenizer for chat template
+
+        Returns:
+            Complete prompt with direct answer
+        """
+        # Simple format for BiPO
+        full_text = f"[Situation]\n{situation}\n[Question]\nYou are {char_name}. What would your response be in this situation?\n[Answer]\n{answer}"
+
+        # Apply chat template if available
+        try:
+            messages = [{"role": "user", "content": full_text}]
+            prompt = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=False,
             )
+        except Exception as e:
+            self.logger.debug(f"Chat template failed, using raw text: {e}")
             prompt = full_text
 
         return prompt

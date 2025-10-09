@@ -124,10 +124,11 @@ def main():
                     break
                 sample = json.loads(line)
                 print(f"\n[Sample {i+1}]")
-                question_preview = sample['question'][:300]
-                if len(sample['question']) > 300:
-                    question_preview += "..."
-                print(f"Question:\n{question_preview}")
+                print(f"Character: {sample['char_name']}")
+                situation_preview = sample['situation'][:300]
+                if len(sample['situation']) > 300:
+                    situation_preview += "..."
+                print(f"Situation:\n{situation_preview}")
                 print(f"Positive: {sample['positive']}")
                 print(f"Neutral: {sample['neutral']}")
         print("-"*80)

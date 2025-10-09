@@ -394,6 +394,72 @@ psyctl extract.steering \
 
 **Note:** BiPO requires layer modules (e.g., `model.layers[13].mlp`) rather than specific projections (e.g., `model.layers[13].mlp.down_proj`).
 
+#### BiPO Dataset Format
+
+PSYCTL uses a clean dataset format that stores raw components (situation, character name, and full answer texts). BiPO uses this format for preference learning aligned with the original paper:
+
+**Dataset Format:**
+```json
+{
+  "situation": "Alice is at a party.\nBob: Hi, how are you?",
+  "char_name": "Alice",
+  "positive": "I'm so excited to be here! Want to dance?",
+  "neutral": "I'm fine, thanks. Just looking around."
+}
+```
+
+**BiPO Training:**
+```bash
+# Generate dataset
+psyctl dataset.build.caa \
+  --model "google/gemma-2-2b-it" \
+  --personality "Extroversion" \
+  --output "./dataset/ext"
+
+# Extract with BiPO (automatically uses full answer texts)
+psyctl extract.steering \
+  --model "meta-llama/Llama-3.2-3B-Instruct" \
+  --layer "model.layers[13].mlp" \
+  --dataset "./dataset/ext" \
+  --output "./vector.safetensors" \
+  --method bipo \
+  --lr 5e-4 \
+  --beta 0.1 \
+  --epochs 10
+```
+
+**Python API:**
+```python
+from pathlib import Path
+from psyctl.core.steering_extractor import SteeringExtractor
+
+extractor = SteeringExtractor()
+
+# BiPO extraction
+vectors = extractor.extract_steering_vector(
+    model_name="meta-llama/Llama-3.2-3B-Instruct",
+    layers=["model.layers[13].mlp"],
+    dataset_path=Path("./dataset/ext"),
+    output_path=Path("./vector.safetensors"),
+    method="bipo",
+    lr=5e-4,
+    beta=0.1,
+    epochs=10
+)
+```
+
+**How It Works:**
+1. Dataset stores raw answer texts (not pre-formatted prompts)
+2. BiPO builds prompts at training time: `[Situation]...[Question]...[Answer]{full_text}`
+3. Evaluates `P(positive_answer | question)` vs `P(neutral_answer | question)`
+4. Optimizes steering vector to increase relative preference for positive answers
+
+**Benefits:**
+- ✅ **Paper alignment**: Evaluates full answer texts as described in BiPO paper
+- ✅ **Clean data**: No template-generated text stored in dataset
+- ✅ **Smaller files**: ~40% size reduction compared to old versions
+- ✅ **Flexibility**: Prompts can be customized at inference time
+
 ### Method Comparison
 
 | Feature | CAA (mean_contrastive) | BiPO |

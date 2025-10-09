@@ -150,7 +150,8 @@ def main():
                         break
                     sample = json.loads(line)
                     print(f"\n[Sample {i+1}]")
-                    print(f"Question: {sample['question'][:200]}...")
+                    print(f"Character: {sample['char_name']}")
+                    print(f"Situation: {sample['situation'][:200]}...")
                     print(f"Positive answer: {sample['positive']}")
                     print(f"Neutral answer: {sample['neutral']}")
             print("-"*80)
