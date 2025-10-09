@@ -133,14 +133,14 @@ class DatasetBuilder:
         if self.use_openrouter and not self.openrouter_api_key:
             raise ValueError("OpenRouter API key is required when use_openrouter=True")
 
-    def build_caa_dataset(
+    def build_steer_dataset(
         self, model: str, personality: str, output_dir: Path, limit_samples: int, dataset_name: str = "allenai/soda",
         temperature: float = 0, top_k: int = None, top_p: float = None, max_tokens: int = 100
     ) -> Path:
         """
-        Build CAA dataset for given personality traits.
+        Build steering dataset for given personality traits.
 
-        This is the main entry point for CAA dataset generation. It orchestrates
+        This is the main entry point for steering dataset generation. It orchestrates
         the entire process from model loading to dataset creation.
 
         Args:
@@ -162,7 +162,7 @@ class DatasetBuilder:
 
         Example:
             >>> builder = DatasetBuilder()
-            >>> output_file = builder.build_caa_dataset(
+            >>> output_file = builder.build_steer_dataset(
             ...     model="meta-llama/Llama-3.2-3B-Instruct",
             ...     personality="Extroversion",
             ...     output_dir=Path("./dataset"),
@@ -219,8 +219,14 @@ class DatasetBuilder:
             return output_file
 
         except Exception as e:
-            self.logger.error(f"Failed to build CAA dataset: {e}")
+            self.logger.error(f"Failed to build steering dataset: {e}")
             raise
+
+    # Alias for backward compatibility
+    def build_caa_dataset(self, *args, **kwargs) -> Path:
+        """Deprecated: Use build_steer_dataset() instead."""
+        self.logger.warning("build_caa_dataset() is deprecated. Use build_steer_dataset() instead.")
+        return self.build_steer_dataset(*args, **kwargs)
 
     def _load_model(self, model_name: str) -> None:
         """
@@ -1003,7 +1009,8 @@ class DatasetBuilder:
         num_samples: int,
         timestamp: str,
         dataset_source: str = "allenai/soda",
-        license: Optional[str] = None
+        license: Optional[str] = None,
+        repo_id: Optional[str] = None
     ) -> str:
         """
         Generate HuggingFace dataset card with PSYCTL branding.
@@ -1015,6 +1022,7 @@ class DatasetBuilder:
             timestamp: Generation timestamp (ISO format)
             dataset_source: Source dataset used
             license: License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')
+            repo_id: HuggingFace repository ID for usage examples
 
         Returns:
             str: Markdown content for README.md
@@ -1023,9 +1031,25 @@ class DatasetBuilder:
         yaml_parts = ["---"]
         if license:
             yaml_parts.append(f"license: {license}")
+
+        # Detect language from dataset source
+        language = "ko" if "korean" in dataset_source.lower() or "_kr" in dataset_source.lower() else "en"
+
+        # Determine size category
+        if num_samples < 100:
+            size_category = "n<1K"
+        elif num_samples < 1000:
+            size_category = "n<1K"
+        elif num_samples < 10000:
+            size_category = "1K<n<10K"
+        elif num_samples < 100000:
+            size_category = "10K<n<100K"
+        else:
+            size_category = "100K<n<1M"
+
         yaml_parts.extend([
             "language:",
-            "- en",
+            f"- {language}",
             "tags:"
         ])
         yaml_header = "\n".join(yaml_parts)
@@ -1039,7 +1063,7 @@ class DatasetBuilder:
 task_categories:
 - text-generation
 size_categories:
-- 1K<n<10K
+- {size_category}
 ---
 
 
@@ -1076,16 +1100,18 @@ Extract steering vectors to modify LLM behavior to exhibit **{personality}** tra
 ## 📝 Dataset Structure
 
 ### Fields
-- **question**: Scenario description with two answer options
-- **positive**: Answer option exhibiting target personality
-- **neutral**: Answer option with neutral personality
+- **situation**: Scenario description and dialogue context
+- **char_name**: Character name in the scenario
+- **positive**: Response exhibiting the target personality trait
+- **neutral**: Response with neutral/baseline personality
 
 ### Example
 ```json
 {{{{
-  "question": "[Situation]\\nAlice is at a party...\\n[Question]\\nWhat should Alice say?\\n1. Let's dance!\\n2. I'll observe.\\n[Answer]",
-  "positive": "(1",
-  "neutral": "(2"
+  "situation": "Alice is at a party and someone asks her to join the dance floor.\\nFriend: Hey Alice, want to come dance with us?\\n",
+  "char_name": "Alice",
+  "positive": "Absolutely! I'd love to—let's get everyone together and make it a group thing!",
+  "neutral": "Sure, I'll join you."
 }}}}
 ```
 
@@ -1103,7 +1129,7 @@ pip install psyctl
 psyctl extract.steering \\
   --model "meta-llama/Llama-3.2-3B-Instruct" \\
   --layer "model.layers[13].mlp.down_proj" \\
-  --dataset "YOUR_USERNAME/repo-name" \\
+  --dataset "{repo_id or 'YOUR_USERNAME/repo-name'}" \\
   --output "./vectors/steering_vector.safetensors"
 ```
 
@@ -1216,7 +1242,8 @@ psyctl steering \\
             num_samples=len(dataset),
             timestamp=timestamp,
             dataset_source=self.dataset_name or "allenai/soda",
-            license=license
+            license=license,
+            repo_id=repo_id
         )
 
         # Create README.md

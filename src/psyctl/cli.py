@@ -6,7 +6,7 @@ import torch
 from rich.console import Console
 from rich.traceback import install
 
-from psyctl.commands import benchmark, dataset, extract, steering
+from psyctl.commands import benchmark, dataset, extract, layer, steering
 from psyctl import config
 from psyctl.core.logger import get_logger, setup_logging
 
@@ -33,9 +33,10 @@ def main():
 
 
 # 명령어 등록
-main.add_command(dataset.build_caa, name="dataset.build.caa")
+main.add_command(dataset.build_steer, name="dataset.build.steer")
 main.add_command(dataset.upload, name="dataset.upload")
 main.add_command(extract.steering, name="extract.steering")
+main.add_command(layer.analyze, name="layer.analyze")
 main.add_command(steering.apply, name="steering")
 main.add_command(benchmark.inventory, name="benchmark")
 

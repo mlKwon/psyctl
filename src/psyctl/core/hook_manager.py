@@ -173,7 +173,7 @@ class ActivationHookManager:
             ... }
             >>> hook_manager.register_hooks(layers)
         """
-        self.logger.info(f"Registering hooks on {len(layers)} layers")
+        self.logger.debug(f"Registering hooks on {len(layers)} layers")
 
         for layer_name, layer_module in layers.items():
             hook_callback = self.collect_activation(layer_name)
@@ -184,7 +184,7 @@ class ActivationHookManager:
                 f"Registered hook on '{layer_name}' ({type(layer_module).__name__})"
             )
 
-        self.logger.info(f"Successfully registered {len(self.hooks)} hooks")
+        self.logger.debug(f"Successfully registered {len(self.hooks)} hooks")
 
     def remove_all_hooks(self) -> None:
         """
@@ -197,14 +197,14 @@ class ActivationHookManager:
             self.logger.debug("No hooks to remove")
             return
 
-        self.logger.info(f"Removing {len(self.hooks)} hooks")
+        self.logger.debug(f"Removing {len(self.hooks)} hooks")
 
         for layer_name, handle in self.hooks.items():
             handle.remove()
             self.logger.debug(f"Removed hook from '{layer_name}'")
 
         self.hooks.clear()
-        self.logger.info("All hooks removed")
+        self.logger.debug("All hooks removed")
 
     def get_mean_activations(self) -> Dict[str, torch.Tensor]:
         """
@@ -242,7 +242,7 @@ class ActivationHookManager:
                 f"shape={mean_act.shape}, count={stats['count']}"
             )
 
-        self.logger.info(
+        self.logger.debug(
             f"Calculated mean activations for {len(mean_activations)} layers"
         )
         return mean_activations

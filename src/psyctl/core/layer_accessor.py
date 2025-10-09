@@ -1,7 +1,7 @@
 """Layer accessor for dynamic model layer access."""
 
 import re
-from typing import List
+from typing import List, Tuple
 
 from torch import nn
 
@@ -176,3 +176,246 @@ class LayerAccessor:
 
         self.logger.debug(f"Layer info for '{layer_str}': {info}")
         return info
+
+    def expand_layer_patterns(
+        self, model: nn.Module, layer_patterns: List[str]
+    ) -> List[str]:
+        """
+        Expand wildcard patterns to concrete layer paths.
+
+        Supports:
+        - [*] : all indices (e.g., "model.layers[*].mlp")
+        - [start:end] : range (e.g., "model.layers[5:10].mlp")
+        - [start:end:step] : range with step (e.g., "model.layers[0:20:2].mlp")
+        - [start:] : from start to end (e.g., "model.layers[10:].mlp")
+        - [:end] : from 0 to end (e.g., "model.layers[:5].mlp")
+
+        Args:
+            model: PyTorch model
+            layer_patterns: List with possible wildcard patterns
+
+        Returns:
+            List of concrete layer paths
+
+        Example:
+            >>> accessor = LayerAccessor()
+            >>> patterns = ["model.layers[*].mlp"]
+            >>> expanded = accessor.expand_layer_patterns(model, patterns)
+            >>> # Returns: ["model.layers[0].mlp", "model.layers[1].mlp", ...]
+        """
+        expanded = []
+        for pattern in layer_patterns:
+            if self._has_wildcard(pattern):
+                self.logger.debug(f"Expanding pattern: {pattern}")
+                expanded_paths = self._expand_single_pattern(model, pattern)
+                self.logger.info(
+                    f"Expanded pattern '{pattern}' to {len(expanded_paths)} layers"
+                )
+                expanded.extend(expanded_paths)
+            else:
+                # No wildcard, use as-is
+                expanded.append(pattern)
+
+        self.logger.info(
+            f"Total: {len(layer_patterns)} patterns → {len(expanded)} layers"
+        )
+        return expanded
+
+    def _has_wildcard(self, pattern: str) -> bool:
+        """Check if pattern contains wildcard syntax."""
+        return bool(re.search(r'\[\*\]|\[[\d\s:]*:[\d\s:]*\]', pattern))
+
+    def _expand_single_pattern(self, model: nn.Module, pattern: str) -> List[str]:
+        """
+        Expand a single pattern to concrete paths.
+
+        Args:
+            model: PyTorch model
+            pattern: Pattern string with wildcards
+
+        Returns:
+            List of concrete layer paths
+        """
+        # Parse the pattern into components
+        # Find all bracket expressions
+        bracket_pattern = r'\[([^\]]+)\]'
+        bracket_info = []
+
+        for match in re.finditer(bracket_pattern, pattern):
+            content = match.group(1)
+            bracket_info.append((match.start(), match.end(), content))
+
+        # Build path components with wildcard info preserved
+        if bracket_info:
+            # Split pattern by bracket positions
+            components = []
+            temp_pattern = pattern
+
+            for start, end, content in bracket_info:
+                # Get the part before the bracket
+                before = temp_pattern[:start]
+                if before:
+                    # Split by dots and add to components
+                    for part in before.split('.'):
+                        if part:
+                            components.append(part)
+
+                # Add the bracket content as a component
+                components.append(f'[{content}]')
+
+                # Update temp_pattern to continue from after this bracket
+                temp_pattern = temp_pattern[end:]
+
+            # Add any remaining parts after the last bracket
+            if temp_pattern:
+                for part in temp_pattern.split('.'):
+                    if part:
+                        components.append(part)
+        else:
+            # No brackets, just split by dots
+            components = [c for c in pattern.split('.') if c]
+
+        self.logger.debug(f"Pattern components: {components}")
+
+        # Recursively expand wildcards
+        return self._recursive_expand(model, components, [])
+
+    def _recursive_expand(
+        self, current: nn.Module, remaining_components: List[str], path_so_far: List[str]
+    ) -> List[str]:
+        """
+        Recursively expand wildcard components.
+
+        Args:
+            current: Current module in the traversal
+            remaining_components: Components left to process
+            path_so_far: Path components accumulated so far
+
+        Returns:
+            List of complete concrete paths
+        """
+        if not remaining_components:
+            # Base case: no more components, return the formatted path
+            return [self.format_layer_path(path_so_far)]
+
+        component = remaining_components[0]
+        rest = remaining_components[1:]
+
+        # Check if component is a wildcard bracket
+        if component.startswith('[') and component.endswith(']'):
+            content = component[1:-1]
+
+            if content == '*':
+                # Wildcard: expand to all indices
+                if not isinstance(current, (nn.ModuleList, list, tuple)):
+                    self.logger.error(
+                        f"Cannot expand wildcard on non-indexable type: {type(current).__name__}"
+                    )
+                    return []
+
+                results = []
+                for idx in range(len(current)):
+                    new_path = path_so_far + [str(idx)]
+                    next_module = current[idx]
+                    results.extend(
+                        self._recursive_expand(next_module, rest, new_path)
+                    )
+                return results
+
+            elif ':' in content:
+                # Slice notation
+                if not isinstance(current, (nn.ModuleList, list, tuple)):
+                    self.logger.error(
+                        f"Cannot expand slice on non-indexable type: {type(current).__name__}"
+                    )
+                    return []
+
+                # Parse slice
+                slice_obj = self._parse_slice(content, len(current))
+                indices = range(*slice_obj)
+
+                results = []
+                for idx in indices:
+                    new_path = path_so_far + [str(idx)]
+                    next_module = current[idx]
+                    results.extend(
+                        self._recursive_expand(next_module, rest, new_path)
+                    )
+                return results
+
+            else:
+                # Regular index
+                idx = int(content)
+                if not isinstance(current, (nn.ModuleList, list, tuple)):
+                    self.logger.error(
+                        f"Cannot index into non-indexable type: {type(current).__name__}"
+                    )
+                    return []
+
+                new_path = path_so_far + [str(idx)]
+                next_module = current[idx]
+                return self._recursive_expand(next_module, rest, new_path)
+
+        else:
+            # Regular attribute access
+            if not hasattr(current, component):
+                self.logger.error(
+                    f"Module has no attribute '{component}' at path '{'.'.join(path_so_far)}'"
+                )
+                return []
+
+            new_path = path_so_far + [component]
+            next_module = getattr(current, component)
+            return self._recursive_expand(next_module, rest, new_path)
+
+    def _parse_slice(self, slice_str: str, max_len: int) -> Tuple[int, int, int]:
+        """
+        Parse slice notation like "5:10", ":5", "10:", "5:10:2".
+
+        Args:
+            slice_str: Slice string (e.g., "5:10", ":5", "10:", "5:10:2")
+            max_len: Maximum length for the slice
+
+        Returns:
+            Tuple of (start, stop, step) for range()
+        """
+        parts = slice_str.split(':')
+
+        if len(parts) == 2:
+            start_str, stop_str = parts
+            step = 1
+        elif len(parts) == 3:
+            start_str, stop_str, step_str = parts
+            step = int(step_str) if step_str.strip() else 1
+        else:
+            raise ValueError(f"Invalid slice notation: {slice_str}")
+
+        start = int(start_str) if start_str.strip() else 0
+        stop = int(stop_str) if stop_str.strip() else max_len
+
+        return (start, stop, step)
+
+    def format_layer_path(self, components: List[str]) -> str:
+        """
+        Format list of components back to layer path string.
+
+        Args:
+            components: List of path components
+
+        Returns:
+            Formatted layer path string with bracket notation
+
+        Example:
+            >>> accessor = LayerAccessor()
+            >>> accessor.format_layer_path(['model', 'layers', '13', 'mlp'])
+            'model.layers[13].mlp'
+        """
+        result = []
+        for comp in components:
+            if comp.isdigit():
+                # Add as bracket notation
+                result[-1] += f'[{comp}]'
+            else:
+                result.append(comp)
+
+        return '.'.join(result)

@@ -65,7 +65,7 @@ logger = get_logger("dataset")
     type=click.Path(exists=True),
     help="Path to custom Jinja2 template for roleplay prompts (.j2 file)",
 )
-def build_caa(
+def build_steer(
     model: str,
     personality: str,
     output: str,
@@ -77,7 +77,7 @@ def build_caa(
     caa_question_template: str,
     roleplay_prompt_template: str,
 ):
-    """Build CAA dataset for steering vector extraction."""
+    """Build steering dataset for steering vector extraction."""
     # Determine if using OpenRouter or local model
     use_openrouter = bool(openrouter_api_key)
 
@@ -94,14 +94,14 @@ def build_caa(
             raise click.BadParameter("--model is required when not using OpenRouter")
         logger.info("Using local model mode")
 
-    logger.info("Starting CAA dataset build")
+    logger.info("Starting steering dataset build")
     logger.info(f"Model: {model}")
     logger.info(f"Personality: {personality}")
     logger.info(f"Output: {output}")
     logger.info(f"Dataset: {dataset}")
     logger.info(f"Limit samples: {limit_samples}")
 
-    console.print(f"[blue]Building CAA dataset...[/blue]")
+    console.print(f"[blue]Building steering dataset...[/blue]")
     if use_openrouter:
         console.print(f"OpenRouter Model: {openrouter_model}")
         console.print(f"OpenRouter Workers: {openrouter_max_workers}")
@@ -116,12 +116,13 @@ def build_caa(
         builder = DatasetBuilder(
             use_openrouter=use_openrouter,
             openrouter_api_key=openrouter_api_key,
-            openrouter_model=openrouter_model,
             openrouter_max_workers=openrouter_max_workers,
             caa_question_template=caa_question_template,
             roleplay_prompt_template=roleplay_prompt_template,
         )
-        output_file = builder.build_caa_dataset(model, personality, Path(output), limit_samples, dataset)
+        # Use openrouter_model if using OpenRouter, otherwise use the local model
+        model_to_use = openrouter_model if use_openrouter else model
+        output_file = builder.build_steer_dataset(model_to_use, personality, Path(output), limit_samples, dataset)
 
         logger.info(f"Dataset built successfully: {output_file}")
         console.print(f"[green]Dataset built successfully: {output_file}[/green]")
@@ -150,7 +151,7 @@ def build_caa(
 )
 @click.option(
     "--commit-message",
-    default="Upload CAA dataset via PSYCTL",
+    default="Upload steering dataset via PSYCTL",
     help="Commit message for upload"
 )
 @click.option(
@@ -159,11 +160,11 @@ def build_caa(
     help="License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')"
 )
 def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str, license: str):
-    """Upload CAA dataset to HuggingFace Hub."""
+    """Upload steering dataset to HuggingFace Hub."""
     from psyctl.core.utils import validate_hf_token
 
     logger.info("Starting dataset upload to HuggingFace Hub")
-    console.print("[blue]Uploading CAA dataset to HuggingFace Hub...[/blue]")
+    console.print("[blue]Uploading steering dataset to HuggingFace Hub...[/blue]")
 
     # Validate HF_TOKEN early
     try:
