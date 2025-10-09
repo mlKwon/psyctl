@@ -226,6 +226,10 @@ psyctl dataset.upload \
 - Metadata tracking (personality, model, sample count, source dataset)
 - Usage instructions and paper references included
 
+### Share with Community
+
+Share your dataset by adding it to [COMMUNITY.DATASETS.md](./COMMUNITY.DATASETS.md) via pull request.
+
 ## Adding Custom Datasets
 
 To use a custom Hugging Face dataset as the source:
@@ -267,12 +271,6 @@ psyctl dataset.build.steer \
 - Contains conversational or scenario data
 - Sufficient samples for meaningful extraction
 
-**Recommended characteristics:**
-- Diverse scenarios covering various social situations
-- Natural language patterns
-- 1000+ samples for robust steering vectors
-- Clean, well-formatted data
-
 ### 4. Testing with Small Samples
 
 Test your custom dataset with limited samples first:
@@ -286,31 +284,13 @@ psyctl dataset.build.steer \
   --limit-samples 10
 ```
 
+## Community Datasets
+
+Pre-built steering datasets and source conversation datasets are available from the community. See **[Community Datasets Registry](./COMMUNITY.DATASETS.md)** for the complete list.
+
 ## Implementation Details
 
 The dataset builder uses P2 (Personality Prompt) to generate personality-specific character descriptions and creates contrastive positive/neutral response pairs. Data is processed in batches with automatic checkpointing.
-
-## Troubleshooting
-
-**Out of Memory:** Reduce batch size via `$env:PSYCTL_INFERENCE_BATCH_SIZE = "8"`
-
-**Dataset Not Found:** Verify dataset exists at HuggingFace and HF_TOKEN is set
-
-**Slow Generation:** Increase batch size, use smaller model, or check GPU utilization
-
-For more issues, see [Troubleshooting Guide](./TROUBLESHOOTING.md) and [Configuration Guide](./CONFIGURATION.md).
-
-## Best Practices
-
-- Use instruction-tuned models (`*-it`, `*-Instruct`)
-- Start with smaller models (270M-2B) for testing
-- Use single personality traits for clearer results
-- Monitor GPU memory usage and adjust batch size accordingly
-
-**Recommended models:**
-- `google/gemma-2-2b-it` (fast)
-- `meta-llama/Llama-3.2-3B-Instruct` (balanced)
-- `google/gemma-3-27b-it` (high quality)
 
 ### Custom Templates
 
