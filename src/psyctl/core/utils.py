@@ -90,8 +90,8 @@ def validate_hf_token() -> str:
             "To set up your token:\n"
             "  1. Get token from https://huggingface.co/settings/tokens\n"
             "  2. Set environment variable:\n"
-            "     • Windows PowerShell: $env:HF_TOKEN=\"hf_xxxx\"\n"
-            "     • Linux/macOS: export HF_TOKEN=\"hf_xxxx\"\n"
+            "     - Windows PowerShell: $env:HF_TOKEN=\"hf_xxxx\"\n"
+            "     - Linux/macOS: export HF_TOKEN=\"hf_xxxx\"\n"
             "  3. Or use: huggingface-cli login"
         )
 

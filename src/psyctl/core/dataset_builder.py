@@ -986,7 +986,7 @@ This dataset contains **{num_samples} samples** designed for extracting personal
 Extract steering vectors to modify LLM behavior to exhibit **{personality}** traits.
 
 ### Workflow
-1. **Dataset Generation** (this dataset) ✓
+1. **Dataset Generation** (this dataset) [DONE]
 2. **Vector Extraction**: Use PSYCTL `extract.steering` command
 3. **Personality Application**: Apply vectors with `steering` command
 4. **Evaluation**: Test with psychological inventories

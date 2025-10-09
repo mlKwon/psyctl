@@ -204,10 +204,10 @@ def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str,
         )
 
         logger.info(f"Upload completed successfully")
-        console.print(f"[green]✓ Successfully uploaded to: {repo_url}[/green]")
+        console.print(f"[green]Successfully uploaded to: {repo_url}[/green]")
         console.print(f"\n[blue]View your dataset at:[/blue]\n{repo_url}")
 
     except Exception as e:
         logger.error(f"Failed to upload dataset: {e}")
-        console.print(f"[red]✗ Upload failed: {e}[/red]")
+        console.print(f"[red]Upload failed: {e}[/red]")
         raise
