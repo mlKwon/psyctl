@@ -12,6 +12,7 @@ from psyctl.core.extractors import (
     MeanContrastiveActivationVectorExtractor,
 )
 from psyctl.core.logger import get_logger
+from psyctl.core.utils import validate_tokenizer_padding
 from psyctl.models.llm_loader import LLMLoader
 from psyctl.models.vector_store import VectorStore
 
@@ -165,6 +166,9 @@ class SteeringExtractor:
                 model, tokenizer = self.llm_loader.load_model(model_name)
             else:
                 self.logger.info("Using pre-loaded model")
+
+            # 1.5. Validate tokenizer padding configuration
+            validate_tokenizer_padding(tokenizer)
 
             # 2. Get extractor
             extractor_class = self.EXTRACTORS.get(method)

@@ -202,6 +202,9 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
         """
         Collect activations from multiple layers in one forward pass.
 
+        Uses attention mask to correctly identify the last real token in each
+        sequence, handling both left-padded and right-padded models.
+
         Args:
             model: Language model
             tokenizer: Tokenizer
@@ -225,7 +228,7 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
                     desc=f"Collecting {suffix} activations",
                     total=num_batches,
                 ):
-                    # Tokenize batch
+                    # Tokenize batch with padding
                     inputs = tokenizer(
                         batch_prompts,
                         return_tensors="pt",
@@ -237,6 +240,10 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
                     # Move to model device
                     device = next(model.parameters()).device
                     inputs = {k: v.to(device) for k, v in inputs.items()}
+
+                    # Set attention mask before forward pass
+                    # This allows hooks to find the last REAL token (not padding)
+                    self.hook_manager.set_attention_mask(inputs['attention_mask'])
 
                     # Forward pass (hooks will collect activations)
                     _ = model(**inputs)

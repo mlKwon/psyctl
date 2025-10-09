@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from psyctl.core.logger import get_logger
 
@@ -97,3 +97,41 @@ def validate_hf_token() -> str:
 
     logger.debug(f"HF_TOKEN found: {token[:4]}...{token[-4:] if len(token) > 8 else '***'}")
     return token
+
+
+def validate_tokenizer_padding(tokenizer) -> str:
+    """
+    Validate and report tokenizer padding configuration.
+
+    Checks the padding direction and logs information about compatibility
+    with the activation extraction system.
+
+    Args:
+        tokenizer: HuggingFace tokenizer to validate
+
+    Returns:
+        Padding side: 'left' or 'right'
+
+    Example:
+        >>> from transformers import AutoTokenizer
+        >>> from psyctl.core.utils import validate_tokenizer_padding
+        >>> tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-270m-it")
+        >>> padding_side = validate_tokenizer_padding(tokenizer)
+        Tokenizer uses LEFT padding
+          Position -1 always points to last real token (safe)
+    """
+    padding_side = getattr(tokenizer, 'padding_side', 'right')
+
+    if padding_side == 'left':
+        logger.info(
+            "Tokenizer uses LEFT padding\n"
+            "  Position -1 always points to last real token (safe)"
+        )
+    else:
+        logger.info(
+            "Tokenizer uses RIGHT padding\n"
+            "  This project uses attention masks to handle this correctly.\n"
+            "  Activation extraction will find the last real token automatically."
+        )
+
+    return padding_side

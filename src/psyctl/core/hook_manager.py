@@ -16,6 +16,9 @@ class ActivationHookManager:
     activations during inference. It supports incremental mean calculation for
     memory-efficient processing of large datasets.
 
+    Correctly handles both left-padded and right-padded batches by using
+    attention masks to identify the last real (non-padding) token in each sequence.
+
     Attributes:
         hooks: Dictionary mapping layer names to RemovableHandle objects
         activations: Dictionary storing activation statistics per layer
@@ -27,13 +30,72 @@ class ActivationHookManager:
         self.hooks: Dict[str, torch.utils.hooks.RemovableHandle] = {}
         self.activations: Dict[str, Dict] = {}
         self.logger = get_logger("hook_manager")
+        self._attention_mask: Optional[torch.Tensor] = None
+
+    def set_attention_mask(self, attention_mask: torch.Tensor) -> None:
+        """
+        Set attention mask for the current batch.
+
+        The attention mask is used to find the last real (non-padding) token
+        in each sequence. This ensures correct activation extraction regardless
+        of padding direction (left or right).
+
+        Args:
+            attention_mask: [batch_size, seq_len] tensor where 1=real, 0=padding
+
+        Example:
+            >>> # Before model forward pass
+            >>> inputs = tokenizer(prompts, padding=True, return_tensors="pt")
+            >>> hook_manager.set_attention_mask(inputs['attention_mask'])
+            >>> _ = model(**inputs)  # Hooks will use the mask
+        """
+        self._attention_mask = attention_mask
+        self.logger.debug(f"Set attention mask with shape {attention_mask.shape}")
+
+    def _get_last_real_token_position(
+        self, attention_mask: torch.Tensor, sample_idx: int
+    ) -> int:
+        """
+        Find the ABSOLUTE position of the last real (non-padding) token.
+
+        Args:
+            attention_mask: [seq_len] tensor for one sample (1=real, 0=padding)
+            sample_idx: Index of sample in batch (for logging)
+
+        Returns:
+            Absolute 0-indexed position in the sequence
+
+        Raises:
+            ValueError: If sample is entirely padding
+
+        Example:
+            >>> # Right padding: [Token1, Token2, Token3, PAD, PAD]
+            >>> mask = torch.tensor([1, 1, 1, 0, 0])
+            >>> pos = manager._get_last_real_token_position(mask, 0)
+            >>> assert pos == 2  # Absolute position 2
+
+            >>> # Left padding: [PAD, PAD, Token1, Token2, Token3]
+            >>> mask = torch.tensor([0, 0, 1, 1, 1])
+            >>> pos = manager._get_last_real_token_position(mask, 0)
+            >>> assert pos == 4  # Absolute position 4
+        """
+        # Find all positions where mask is 1
+        real_positions = torch.where(attention_mask == 1)[0]
+
+        if len(real_positions) == 0:
+            raise ValueError(f"Sample {sample_idx} is entirely padding")
+
+        # Get the last real position (highest index)
+        last_position = real_positions[-1].item()
+        return last_position
 
     def collect_activation(self, layer_name: str) -> Callable:
         """
         Create hook callback for collecting activations with incremental mean.
 
-        This method returns a hook function that collects the last token's activation
-        from each sample in a batch and updates the running mean incrementally.
+        This method returns a hook function that collects the last REAL token's
+        activation from each sample in a batch, using attention mask to handle
+        padding correctly.
 
         Args:
             layer_name: Name identifier for this layer
@@ -42,8 +104,8 @@ class ActivationHookManager:
             Hook function that can be registered with module.register_forward_hook()
 
         Note:
-            The hook assumes output shape is [batch_size, sequence_length, hidden_dim]
-            and collects activations from the last token (index -1).
+            Uses attention mask if available to find the last real token.
+            Falls back to position -1 if no attention mask is set.
         """
 
         def hook(module: nn.Module, input: tuple, output: torch.Tensor):
@@ -60,16 +122,31 @@ class ActivationHookManager:
                 output = output[0]
 
             # Detach and move to CPU for memory efficiency
-            t = output.detach().cpu()  # Shape: [B, T, H]
+            activations = output.detach().cpu()  # Shape: [B, T, H]
 
             # Initialize storage for this layer if needed
             if layer_name not in self.activations:
                 self.activations[layer_name] = {'sum': None, 'count': 0}
 
-            # Collect last token activation from each sample in batch
-            batch_size = t.shape[0]
+            # Process each sample in batch
+            batch_size = activations.shape[0]
             for i in range(batch_size):
-                vec = t[i, -1, :]  # Last token vector for sample i
+                # Find last real token position
+                if self._attention_mask is not None:
+                    # Use attention mask to find last real token
+                    mask = self._attention_mask[i].cpu()
+                    last_pos = self._get_last_real_token_position(mask, i)
+                else:
+                    # Fallback: assume no padding (use position -1)
+                    last_pos = -1
+                    if i == 0:  # Warn once per batch
+                        self.logger.warning(
+                            f"No attention mask set for layer '{layer_name}'. "
+                            f"Using position -1 (may be incorrect for right-padded models)"
+                        )
+
+                # Extract activation at last real token
+                vec = activations[i, last_pos, :]
 
                 # Update incremental sum
                 if self.activations[layer_name]['sum'] is None:
@@ -172,13 +249,14 @@ class ActivationHookManager:
 
     def reset(self) -> None:
         """
-        Reset activation storage without removing hooks.
+        Reset activation storage and clear attention mask.
 
         Useful when collecting activations for different prompt types
         (e.g., positive vs neutral) using the same hooks.
         """
         self.logger.info("Resetting activation storage")
         self.activations.clear()
+        self._attention_mask = None
 
     def get_activation_stats(self) -> Dict[str, Dict]:
         """

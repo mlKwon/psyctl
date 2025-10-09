@@ -699,6 +699,26 @@ export PSYCTL_INFERENCE_BATCH_SIZE=8
 
 If activations seem incorrect, verify token position detection for your model architecture. Check logs for detected position or implement custom detection logic.
 
+### Padding Handling
+
+**Technical details**: When you see this log message during extraction:
+```
+Tokenizer uses LEFT padding
+  Position -1 always points to last real token (safe)
+```
+or
+```
+Tokenizer uses RIGHT padding
+  This project uses attention masks to handle this correctly.
+  Activation extraction will find the last real token automatically.
+```
+
+This confirms the system detected your tokenizer's padding configuration and will handle it appropriately.
+
+**If you see warnings**: The warning "No attention mask set" should never appear during normal usage. If you see it, please report an issue.
+
+For more details, see [Troubleshooting Guide](./TROUBLESHOOTING.md#padding-related-issues).
+
 ## References
 
 - [CAA Paper: Contrastive Activation Addition](https://arxiv.org/abs/2312.06681)
