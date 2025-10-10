@@ -9,6 +9,11 @@ from sklearn.svm import LinearSVC  # type: ignore[import-not-found]
 from psyctl.core.analyzers.base import BaseLayerAnalyzer
 from psyctl.core.logger import get_logger
 
+# Agreement score sigmoid transformation coefficient
+# Controls sensitivity of agreement metric to standard deviation
+# Higher values -> more sensitive to metric disagreement
+AGREEMENT_SENSITIVITY_COEFFICIENT = 2.0
+
 
 class ConsensusAnalyzer(BaseLayerAnalyzer):
     """
@@ -280,7 +285,7 @@ class ConsensusAnalyzer(BaseLayerAnalyzer):
         # std = 0 -> agreement = 1.0 (perfect agreement)
         # std = 0.5 -> agreement = 0.0 (extreme disagreement)
         # Using sigmoid-like transformation
-        agreement = 1.0 / (1.0 + 2.0 * std)
+        agreement = 1.0 / (1.0 + AGREEMENT_SENSITIVITY_COEFFICIENT * std)
 
         return float(agreement)
 

@@ -104,7 +104,8 @@ class SteeringApplier:
         else:
             assert model is not None
             try:
-                model_identifier = model.config._name_or_path  # type: ignore[union-attr]
+                # Access model name from config (private attribute, may not exist)
+                model_identifier = getattr(model.config, "_name_or_path", "unknown")
             except AttributeError:
                 model_identifier = "unknown"
 
@@ -394,7 +395,8 @@ class SteeringApplier:
         else:
             assert model is not None
             try:
-                model_identifier = model.config._name_or_path  # type: ignore[union-attr]
+                # Access model name from config (private attribute, may not exist)
+                model_identifier = getattr(model.config, "_name_or_path", "unknown")
             except AttributeError:
                 model_identifier = "unknown"
 
