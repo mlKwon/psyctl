@@ -9,7 +9,7 @@ from transformers import AutoTokenizer
 
 from psyctl.core.extractors import (
     BiPOVectorExtractor,
-    MeanContrastiveActivationVectorExtractor,
+    MeanDifferenceActivationVectorExtractor,
 )
 from psyctl.core.logger import get_logger
 from psyctl.core.utils import validate_tokenizer_padding
@@ -21,7 +21,7 @@ class SteeringExtractor:
     """Extract steering vectors using various methods."""
 
     EXTRACTORS = {
-        "mean_diff": MeanContrastiveActivationVectorExtractor,
+        "mean_diff": MeanDifferenceActivationVectorExtractor,
         "bipo": BiPOVectorExtractor,
     }
 

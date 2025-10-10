@@ -1,4 +1,4 @@
-"""Mean Contrastive Activation Vector extractor."""
+"""Mean Difference Activation Vector extractor."""
 
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -16,9 +16,9 @@ from psyctl.core.layer_accessor import LayerAccessor
 from psyctl.core.logger import get_logger
 
 
-class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
+class MeanDifferenceActivationVectorExtractor(BaseVectorExtractor):
     """
-    Extract steering vectors using mean difference of contrastive activations.
+    Extract steering vectors using mean difference of activations.
 
     This extractor computes steering vectors by taking the mean difference
     between activations from positive and neutral personality prompts.
@@ -37,11 +37,11 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
     """
 
     def __init__(self):
-        """Initialize MeanContrastiveActivationVectorExtractor."""
+        """Initialize MeanDifferenceActivationVectorExtractor."""
         self.hook_manager = ActivationHookManager()
         self.dataset_loader = SteerDatasetLoader()
         self.layer_accessor = LayerAccessor()
-        self.logger = get_logger("mcav_extractor")
+        self.logger = get_logger("mdav_extractor")
 
     def extract(
         self,
@@ -78,7 +78,7 @@ class MeanContrastiveActivationVectorExtractor(BaseVectorExtractor):
             ValueError: If neither dataset_path nor dataset is provided, or both are provided
 
         Example:
-            >>> extractor = MeanContrastiveActivationVectorExtractor()
+            >>> extractor = MeanDifferenceActivationVectorExtractor()
             >>> # Using dataset_path
             >>> vectors = extractor.extract(
             ...     model=model,
