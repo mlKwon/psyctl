@@ -1,7 +1,8 @@
 """Steering vector extraction commands."""
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional, Tuple
 
 import click
 from rich.console import Console
@@ -14,7 +15,9 @@ logger = get_logger("extract")
 
 
 @click.command()
-@click.option("--model", required=True, help="Model name (e.g., meta-llama/Llama-3.2-3B-Instruct)")
+@click.option(
+    "--model", required=True, help="Model name (e.g., meta-llama/Llama-3.2-3B-Instruct)"
+)
 @click.option(
     "--layer",
     multiple=True,
@@ -28,7 +31,10 @@ logger = get_logger("extract")
     "Example: --layers 'model.layers[13].mlp.down_proj,model.layers[14].mlp.down_proj'",
 )
 @click.option(
-    "--dataset", required=True, type=click.Path(exists=True), help="Dataset directory path"
+    "--dataset",
+    required=True,
+    type=click.Path(exists=True),
+    help="Dataset directory path",
 )
 @click.option(
     "--output", required=True, type=click.Path(), help="Output safetensors file path"
@@ -47,7 +53,7 @@ logger = get_logger("extract")
     "--method",
     type=str,
     default="mean_diff",
-    help="Extraction method: mean_diff (mean difference) or bipo (preference optimization)",
+    help="Extraction method: mean_diff, pca_caa (PCA-enhanced CAA), or bipo (preference optimization)",
 )
 @click.option(
     "--lr",
@@ -67,21 +73,28 @@ logger = get_logger("extract")
     default=10,
     help="Number of training epochs for BiPO (default: 10)",
 )
+@click.option(
+    "--variance-threshold",
+    type=float,
+    default=0.95,
+    help="PCA variance threshold for pca_caa method (default: 0.95, keeps 95%% of variance)",
+)
 def steering(
     model: str,
-    layer: Tuple[str],
-    layers: Optional[str],
+    layer: tuple[str],
+    layers: str | None,
     dataset: str,
     output: str,
-    batch_size: Optional[int],
+    batch_size: int | None,
     normalize: bool,
     method: str,
     lr: float,
     beta: float,
     epochs: int,
+    variance_threshold: float,
 ):
     """
-    Extract steering vectors using various methods (CAA or BiPO).
+    Extract steering vectors using various methods (CAA, PCA-CAA, or BiPO).
 
     Supports single or multi-layer extraction. Specify layers using either:
     - Multiple --layer flags: --layer "model.layers[13].mlp.down_proj" --layer "model.layers[14].mlp.down_proj"
@@ -89,6 +102,7 @@ def steering(
 
     Methods:
     - mean_diff: Fast statistical method using mean activation difference (MD from CAA paper)
+    - pca_caa: PCA-enhanced CAA for noise reduction and improved robustness
     - bipo: Optimization-based method using preference learning
 
     Examples:
@@ -100,6 +114,16 @@ def steering(
       --layer "model.layers[13].mlp.down_proj" \\
       --dataset "./dataset/steering" \\
       --output "./steering_vector/out.safetensors"
+
+    \b
+    # PCA-enhanced CAA method (denoised, more robust)
+    psyctl extract.steering \\
+      --model "meta-llama/Llama-3.2-3B-Instruct" \\
+      --layer "model.layers[13].mlp.down_proj" \\
+      --dataset "./dataset/steering" \\
+      --output "./steering_vector/out.safetensors" \\
+      --method pca_caa \\
+      --variance-threshold 0.95
 
     \b
     # BiPO method (optimization-based)
@@ -114,13 +138,13 @@ def steering(
       --epochs 10
 
     \b
-    # Multi-layer extraction with BiPO
+    # Multi-layer extraction with PCA-CAA
     psyctl extract.steering \\
       --model "meta-llama/Llama-3.2-3B-Instruct" \\
-      --layers "model.layers[13].mlp,model.layers[14].mlp" \\
-      --dataset "./dataset/caa" \\
+      --layers "model.layers[13].mlp.down_proj,model.layers[14].mlp.down_proj" \\
+      --dataset "./dataset/steering" \\
       --output "./steering_vector/out.safetensors" \\
-      --method bipo
+      --method pca_caa
     """
     logger.info("Starting steering vector extraction")
     logger.info(f"Model: {model}")
@@ -137,7 +161,9 @@ def steering(
 
     # Add layers from --layers (comma-separated)
     if layers:
-        layer_list.extend([l.strip() for l in layers.split(",") if l.strip()])
+        layer_list.extend([
+            layer_str.strip() for layer_str in layers.split(",") if layer_str.strip()
+        ])
 
     # Validate that at least one layer is specified
     if not layer_list:
@@ -147,7 +173,7 @@ def steering(
 
     logger.info(f"Target layers ({len(layer_list)}): {layer_list}")
 
-    console.print(f"[blue]Extracting steering vectors...[/blue]")
+    console.print("[blue]Extracting steering vectors...[/blue]")
     console.print(f"Model: [cyan]{model}[/cyan]")
     console.print(f"Layers ({len(layer_list)}):")
     for idx, layer_name in enumerate(layer_list, 1):
@@ -160,12 +186,15 @@ def steering(
     if batch_size:
         console.print(f"Batch size: {batch_size}")
 
-    # Display BiPO parameters if using BiPO method
+    # Display method-specific parameters
     if method == "bipo":
-        console.print(f"[yellow]BiPO Parameters:[/yellow]")
+        console.print("[yellow]BiPO Parameters:[/yellow]")
         console.print(f"  - Learning rate: {lr}")
         console.print(f"  - Beta: {beta}")
         console.print(f"  - Epochs: {epochs}")
+    elif method == "pca_caa":
+        console.print("[yellow]PCA-CAA Parameters:[/yellow]")
+        console.print(f"  - Variance threshold: {variance_threshold:.2%}")
 
     try:
         extractor = SteeringExtractor()
@@ -178,6 +207,10 @@ def steering(
                 "beta": beta,
                 "epochs": epochs,
             }
+        elif method == "pca_caa":
+            method_params = {
+                "variance_threshold": variance_threshold,
+            }
 
         vectors = extractor.extract_steering_vector(
             model_name=model,
@@ -187,7 +220,7 @@ def steering(
             batch_size=batch_size,
             normalize=normalize,
             method=method,
-            **method_params,
+            **method_params,  # type: ignore[arg-type]
         )
 
         logger.info(f"Steering vectors extracted successfully to {output}")

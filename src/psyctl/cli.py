@@ -6,8 +6,8 @@ import torch
 from rich.console import Console
 from rich.traceback import install
 
-from psyctl.commands import benchmark, dataset, extract, layer, steering
 from psyctl import config
+from psyctl.commands import benchmark, dataset, extract, layer, steering
 from psyctl.core.logger import get_logger, setup_logging
 
 # Disable PyTorch compiler to avoid Triton issues

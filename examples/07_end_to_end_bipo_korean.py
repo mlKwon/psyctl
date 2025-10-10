@@ -18,16 +18,17 @@ Usage:
   python end_to_end_bipo.py --epochs 20                        # Custom training epochs
 """
 
-import os
 import argparse
+import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Import PSYCTL components
 from psyctl.core.dataset_builder import DatasetBuilder
-from psyctl.core.steering_extractor import SteeringExtractor
-from psyctl.core.steering_applier import SteeringApplier
 from psyctl.core.logger import get_logger
+from psyctl.core.steering_applier import SteeringApplier
+from psyctl.core.steering_extractor import SteeringExtractor
 
 # Initialize logger
 logger = get_logger("end_to_end_example")
@@ -45,7 +46,9 @@ if not OPENROUTER_API_KEY:
 
 # Configuration
 DATASET_MODEL = "moonshotai/kimi-k2-0905"  # OpenRouter model for dataset generation
-STEERING_MODEL = "google/gemma-3-270m-it"  # Local model for steering extraction and application
+STEERING_MODEL = (
+    "google/gemma-3-270m-it"  # Local model for steering extraction and application
+)
 PERSONALITY = "매우 무례한"  # Very rude personality
 SAMPLE_COUNT = 10  # Small sample for quick testing
 RESULTS_DIR = Path("./results")
@@ -66,20 +69,31 @@ ROLEPLAY_TEMPLATE = """# 개요
 {{ situation }}
 """
 
+
 def main():
     """Execute the complete end-to-end workflow."""
     parser = argparse.ArgumentParser(description="PSYCTL End-to-End BiPO Example")
-    parser.add_argument("--skip-dataset", action="store_true",
-                        help="Skip dataset generation and use existing dataset")
-    parser.add_argument("--dataset-path", type=str,
-                        help="Path to existing dataset file (required with --skip-dataset)")
-    parser.add_argument("--epochs", type=int, default=10,
-                        help="Number of training epochs for BiPO (default: 10)")
+    parser.add_argument(
+        "--skip-dataset",
+        action="store_true",
+        help="Skip dataset generation and use existing dataset",
+    )
+    parser.add_argument(
+        "--dataset-path",
+        type=str,
+        help="Path to existing dataset file (required with --skip-dataset)",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=10,
+        help="Number of training epochs for BiPO (default: 10)",
+    )
     args = parser.parse_args()
 
-    print("="*80)
+    print("=" * 80)
     print("PSYCTL End-to-End Example: Korean Rudeness Personality Steering")
-    print("="*80)
+    print("=" * 80)
     print()
 
     # Ensure results directory exists
@@ -94,18 +108,18 @@ def main():
         dataset_file = Path(args.dataset_path)
         if not dataset_file.exists():
             raise FileNotFoundError(f"Dataset file not found: {dataset_file}")
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("STEP 1: Using Existing Dataset")
-        print("="*80)
+        print("=" * 80)
         print(f"Dataset: {dataset_file}")
         print()
     else:
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("STEP 1: Generating Steering Dataset")
-        print("="*80)
+        print("=" * 80)
         print(f"Model: {DATASET_MODEL}")
         print(f"Personality: {PERSONALITY}")
-        print(f"Dataset: CaveduckAI/simplified_soda_kr (Korean dialogues)")
+        print("Dataset: CaveduckAI/simplified_soda_kr (Korean dialogues)")
         print(f"Samples: {SAMPLE_COUNT}")
         print()
 
@@ -113,7 +127,7 @@ def main():
         dataset_builder = DatasetBuilder(
             use_openrouter=True,
             openrouter_api_key=OPENROUTER_API_KEY,
-            openrouter_max_workers=2  # Parallel processing
+            openrouter_max_workers=2,  # Parallel processing
         )
 
         # Set custom Korean template
@@ -130,27 +144,28 @@ def main():
                 limit_samples=SAMPLE_COUNT,
                 dataset_name="CaveduckAI/simplified_soda_kr",
                 temperature=0.7,
-                max_tokens=100
+                max_tokens=100,
             )
             print(f"\n[SUCCESS] Steering dataset generated: {dataset_file}")
             logger.info(f"Steering dataset generated successfully: {dataset_file}")
 
             # Display sample data from generated dataset
-            print("\n" + "-"*80)
+            print("\n" + "-" * 80)
             print("DATASET SAMPLES (First 2 examples)")
-            print("-"*80)
+            print("-" * 80)
             import json
-            with open(dataset_file, 'r', encoding='utf-8') as f:
+
+            with Path(dataset_file).open(encoding="utf-8") as f:
                 for i, line in enumerate(f):
                     if i >= 2:  # Show only first 2 samples
                         break
                     sample = json.loads(line)
-                    print(f"\n[Sample {i+1}]")
+                    print(f"\n[Sample {i + 1}]")
                     print(f"Character: {sample['char_name']}")
                     print(f"Situation: {sample['situation'][:200]}...")
                     print(f"Positive answer: {sample['positive']}")
                     print(f"Neutral answer: {sample['neutral']}")
-            print("-"*80)
+            print("-" * 80)
 
         except Exception as e:
             logger.error(f"Failed to generate steering dataset: {e}")
@@ -159,12 +174,12 @@ def main():
     # =========================================================================
     # STEP 2: Extract BiPO Steering Vector
     # =========================================================================
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("STEP 2: Extracting BiPO Steering Vector")
-    print("="*80)
+    print("=" * 80)
     print(f"Model: {STEERING_MODEL}")
     print(f"Dataset: {dataset_file}")
-    print(f"Method: BiPO (Bi-Directional Preference Optimization)")
+    print("Method: BiPO (Bi-Directional Preference Optimization)")
     print(f"Epochs: {args.epochs}")
     print()
 
@@ -175,7 +190,9 @@ def main():
     logger.info("Starting BiPO steering vector extraction")
     try:
         # Determine target layers - use middle layer for gemma-3-270m-it
-        target_layers = ["model.layers.9.mlp.down_proj"]  # Middle layer for gemma-3-270m-it (18 layers)
+        target_layers = [
+            "model.layers.9.mlp.down_proj"
+        ]  # Middle layer for gemma-3-270m-it (18 layers)
 
         extractor.extract_steering_vector(
             model_name=STEERING_MODEL,
@@ -184,7 +201,7 @@ def main():
             output_path=STEERING_VECTOR_PATH,
             method="bipo",
             normalize=True,
-            epochs=args.epochs
+            epochs=args.epochs,
         )
         print(f"\n[SUCCESS] Steering vector extracted: {STEERING_VECTOR_PATH}")
         logger.info(f"Steering vector extracted successfully: {STEERING_VECTOR_PATH}")
@@ -195,37 +212,45 @@ def main():
     # =========================================================================
     # STEP 3: Apply Steering and Test
     # =========================================================================
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("STEP 3: Applying Steering and Testing")
-    print("="*80)
+    print("=" * 80)
     print(f"Model: {STEERING_MODEL}")
     print(f"Steering Vector: {STEERING_VECTOR_PATH}")
-    print(f"Test Input: '안녕하세요' (Hello)")
+    print("Test Input: '안녕하세요' (Hello)")
     print()
 
     logger.info("Initializing SteeringApplier")
     applier = SteeringApplier()
 
     # Test inputs (single or multiple based on dataset source)
-    test_inputs = ["안녕하세요", "오늘 날씨가 좋네요", "도움이 필요하신가요?"] if args.skip_dataset else ["안녕하세요"]
+    test_inputs = (
+        ["안녕하세요", "오늘 날씨가 좋네요", "도움이 필요하신가요?"]
+        if args.skip_dataset
+        else ["안녕하세요"]
+    )
 
     for test_input in test_inputs:
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"Test Input: {test_input}")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         # Generate response WITHOUT steering (using a simple baseline generation)
         print("\nGenerating response WITHOUT steering...")
         logger.info(f"Generating baseline response for: {test_input}")
         try:
             import torch
+
             from psyctl.models.llm_loader import LLMLoader
+
             loader = LLMLoader()
             model, tokenizer = loader.load_model(STEERING_MODEL)
 
             # Prepare prompt
             messages = [{"role": "user", "content": test_input}]
-            prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            prompt = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
             inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
             # Generate
@@ -235,10 +260,12 @@ def main():
                     max_new_tokens=100,
                     temperature=0.7,
                     top_p=0.9,
-                    do_sample=True
+                    do_sample=True,
                 )
 
-            response_baseline = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+            response_baseline = tokenizer.decode(
+                outputs[0][inputs.input_ids.shape[1] :], skip_special_tokens=True
+            )
             print(f"[BASELINE] {response_baseline}")
 
             # Clean up
@@ -259,7 +286,7 @@ def main():
                 input_text=test_input,
                 max_new_tokens=100,
                 strength=1.5,  # Higher strength for clear effect
-                temperature=0.7
+                temperature=0.7,
             )
             print(f"[STEERED] {response_steered}")
         except Exception as e:
@@ -271,17 +298,18 @@ def main():
     # =========================================================================
     # Summary
     # =========================================================================
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print(f"[SUCCESS] Steering Dataset: {dataset_file}")
     print(f"[SUCCESS] Steering Vector: {STEERING_VECTOR_PATH}")
     print(f"[SUCCESS] Training Epochs: {args.epochs}")
-    print(f"[SUCCESS] Steering Strength: 1.5")
+    print("[SUCCESS] Steering Strength: 1.5")
     print("\nEnd-to-end BiPO workflow completed successfully!")
-    print("="*80)
+    print("=" * 80)
 
     logger.info("End-to-end workflow completed successfully")
+
 
 if __name__ == "__main__":
     main()

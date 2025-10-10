@@ -1,13 +1,16 @@
 """Simple logging setup."""
+
+from __future__ import annotations
+
 import logging
 import sys
-from pathlib import Path
+from typing import cast
 
 from psyctl import config
 
 # Add SUCCESS log level
 SUCCESS_LEVEL = 25
-logging.addLevelName(SUCCESS_LEVEL, 'SUCCESS')
+logging.addLevelName(SUCCESS_LEVEL, "SUCCESS")
 
 
 class CustomLogger(logging.Logger):
@@ -29,18 +32,18 @@ def setup_logging():
     # Console handler
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler(sys.stdout)]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
     # File handler for DEBUG
-    if config.LOG_LEVEL.upper() == 'DEBUG':
-        debug_file = config.OUTPUT_DIR / 'debug.log'
+    if config.LOG_LEVEL.upper() == "DEBUG":
+        debug_file = config.OUTPUT_DIR / "debug.log"
         debug_file.parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(debug_file)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(
-            logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
         logging.getLogger().addHandler(file_handler)
 
@@ -50,16 +53,17 @@ def setup_logging():
         file_handler = logging.FileHandler(config.LOG_FILE)
         file_handler.setLevel(level)
         file_handler.setFormatter(
-            logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
         logging.getLogger().addHandler(file_handler)
 
 
-def get_logger(name: str = None) -> CustomLogger:
+def get_logger(name: str | None = None) -> CustomLogger:
     """Get logger instance."""
     # Ensure CustomLogger class is set
     logging.setLoggerClass(CustomLogger)
     logger = logging.getLogger(name or __name__)
     # Reset to default to not affect other loggers
     logging.setLoggerClass(logging.Logger)
-    return logger
+    # Cast to CustomLogger since we set the class above
+    return cast("CustomLogger", logger)

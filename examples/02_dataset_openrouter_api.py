@@ -23,6 +23,7 @@ Disadvantages:
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 from psyctl.core.dataset_builder import DatasetBuilder
@@ -57,17 +58,18 @@ AVAILABLE_MODELS = {
     "large": "meta-llama/llama-3.1-405b-instruct",  # Largest open model
 }
 
+
 def main():
     """Generate steering dataset using OpenRouter API."""
 
-    print("="*80)
+    print("=" * 80)
     print("Steering Dataset Generation: OpenRouter API")
-    print("="*80)
+    print("=" * 80)
     print(f"Model: {OPENROUTER_MODEL} (cloud)")
     print(f"Personality: {PERSONALITY}")
     print(f"Samples: {SAMPLE_COUNT}")
     print(f"Workers: {MAX_WORKERS} (parallel)")
-    print(f"Dataset: allenai/soda")
+    print("Dataset: allenai/soda")
     print()
     print("NOTE: This will use OpenRouter API credits.")
     print("      Estimated cost: $0.01-0.05 for 50 samples (model dependent)")
@@ -76,7 +78,7 @@ def main():
     for name, model_id in AVAILABLE_MODELS.items():
         current = " (SELECTED)" if model_id == OPENROUTER_MODEL else ""
         print(f"  {name}: {model_id}{current}")
-    print("="*80)
+    print("=" * 80)
     print()
 
     # Ensure output directory exists
@@ -92,7 +94,7 @@ def main():
     dataset_builder = DatasetBuilder(
         use_openrouter=True,
         openrouter_api_key=OPENROUTER_API_KEY,
-        openrouter_max_workers=MAX_WORKERS  # Parallel processing
+        openrouter_max_workers=MAX_WORKERS,  # Parallel processing
     )
 
     print(f"\nGenerating {SAMPLE_COUNT} steering dataset samples...")
@@ -107,51 +109,56 @@ def main():
             limit_samples=SAMPLE_COUNT,
             dataset_name="allenai/soda",
             temperature=0.7,
-            max_tokens=100
+            max_tokens=100,
         )
 
         print(f"\n[SUCCESS] Dataset generated: {dataset_file}")
         logger.info(f"Dataset generated successfully: {dataset_file}")
 
         # Display samples
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("DATASET SAMPLES (First 3 examples)")
-        print("-"*80)
+        print("-" * 80)
         import json
-        with open(dataset_file, 'r', encoding='utf-8') as f:
+
+        with Path(dataset_file).open(encoding="utf-8") as f:
             for i, line in enumerate(f):
                 if i >= 3:
                     break
                 sample = json.loads(line)
-                print(f"\n[Sample {i+1}]")
+                print(f"\n[Sample {i + 1}]")
                 print(f"Character: {sample['char_name']}")
-                situation_preview = sample['situation'][:300]
-                if len(sample['situation']) > 300:
+                situation_preview = sample["situation"][:300]
+                if len(sample["situation"]) > 300:
                     situation_preview += "..."
                 print(f"Situation:\n{situation_preview}")
                 print(f"Positive: {sample['positive']}")
                 print(f"Neutral: {sample['neutral']}")
-        print("-"*80)
+        print("-" * 80)
 
         # Summary statistics
-        total_lines = sum(1 for _ in open(dataset_file, 'r', encoding='utf-8'))
+        with Path(dataset_file).open(encoding="utf-8") as f:
+            total_lines = sum(1 for _ in f)
         file_size = dataset_file.stat().st_size / 1024  # KB
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("GENERATION SUMMARY")
-        print("="*80)
+        print("=" * 80)
         print(f"Model: {OPENROUTER_MODEL}")
-        print(f"Method: OpenRouter API")
+        print("Method: OpenRouter API")
         print(f"Parallel workers: {MAX_WORKERS}")
         print(f"Total samples: {total_lines}")
         print(f"File size: {file_size:.2f} KB")
         print(f"Output: {dataset_file}")
 
         # Show OpenRouter usage if available
-        if hasattr(dataset_builder, 'openrouter_client') and dataset_builder.openrouter_client:
+        if (
+            hasattr(dataset_builder, "openrouter_client")
+            and dataset_builder.openrouter_client
+        ):
             total_requests = dataset_builder.openrouter_client.get_total_requests()
             total_cost = dataset_builder.openrouter_client.get_total_cost()
-            print(f"\nOpenRouter Usage:")
+            print("\nOpenRouter Usage:")
             print(f"  Total requests: {total_requests}")
             print(f"  Total cost: ${total_cost:.6f}")
 
@@ -163,7 +170,7 @@ def main():
         print("Tip: Try different models by changing OPENROUTER_MODEL variable:")
         print("     - Fast & cheap: meta-llama/llama-3.3-70b-instruct")
         print("     - High quality: anthropic/claude-3.5-sonnet")
-        print("="*80)
+        print("=" * 80)
 
     except Exception as e:
         logger.error(f"Failed to generate dataset: {e}")
@@ -174,6 +181,7 @@ def main():
         print("- Try reducing MAX_WORKERS if hitting rate limits")
         print("- Check model availability: https://openrouter.ai/models")
         raise
+
 
 if __name__ == "__main__":
     main()

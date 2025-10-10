@@ -33,24 +33,25 @@ References:
 - SoDA Dataset: https://huggingface.co/datasets/allenai/soda
 """
 
+from __future__ import annotations
+
 import json
+import threading
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Tuple
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-import threading
 
-from datasets import load_dataset
-from tqdm import tqdm, trange
-import torch
 import jinja2
+import torch
+from datasets import load_dataset  # type: ignore[import-not-found]
+from tqdm import tqdm
 
+from psyctl.config import CHECKPOINT_INTERVAL, INFERENCE_BATCH_SIZE
 from psyctl.core.logger import get_logger
 from psyctl.core.prompt import P2
 from psyctl.core.prompt_openrouter import P2OpenRouter
 from psyctl.models.llm_loader import LLMLoader
 from psyctl.models.openrouter_client import OpenRouterClient
-from psyctl.config import INFERENCE_BATCH_SIZE, MAX_WORKERS, CHECKPOINT_INTERVAL
 
 # PSYCTL branding
 PSYCTL_LOGO_URL = "https://cdn.caveduck.io/cdn-cgi/image/anim=false,dpr=1.5,f=auto,w=400/charim/5eaf363a-94b4-4b6c-bd79-e8bf4008af70"
@@ -85,7 +86,13 @@ class DatasetBuilder:
         _build_caa_dataset: Core dataset building logic
     """
 
-    def __init__(self, use_openrouter: bool = False, openrouter_api_key: str = None, openrouter_max_workers: int = 1, roleplay_prompt_template: str = None):
+    def __init__(
+        self,
+        use_openrouter: bool = False,
+        openrouter_api_key: str | None = None,
+        openrouter_max_workers: int = 1,
+        roleplay_prompt_template: str | None = None,
+    ):
         """
         Initialize DatasetBuilder with required components.
 
@@ -121,8 +128,8 @@ class DatasetBuilder:
 
         # Initialize Jinja2 environment
         self.jinja_env = jinja2.Environment(
-            loader=jinja2.PackageLoader('psyctl', 'templates'),
-            autoescape=jinja2.select_autoescape()
+            loader=jinja2.PackageLoader("psyctl", "templates"),
+            autoescape=jinja2.select_autoescape(),
         )
 
         # Store custom template path
@@ -133,8 +140,16 @@ class DatasetBuilder:
             raise ValueError("OpenRouter API key is required when use_openrouter=True")
 
     def build_steer_dataset(
-        self, model: str, personality: str, output_dir: Path, limit_samples: int, dataset_name: str = "allenai/soda",
-        temperature: float = 0.01, top_k: int = None, top_p: float = None, max_tokens: int = 100
+        self,
+        model: str,
+        personality: str,
+        output_dir: Path,
+        limit_samples: int,
+        dataset_name: str = "allenai/soda",
+        temperature: float = 0.01,
+        top_k: int | None = None,
+        top_p: float | None = None,
+        max_tokens: int = 100,
     ) -> Path:
         """
         Build steering dataset for given personality traits.
@@ -180,7 +195,9 @@ class DatasetBuilder:
         self.logger.info(f"Personality traits: {personality}")
         self.logger.info(f"Output directory: {output_dir}")
         self.logger.info(f"Dataset: {dataset_name}")
-        self.logger.info(f"Generation params: temperature={temperature}, top_k={top_k}, top_p={top_p}, max_tokens={max_tokens}")
+        self.logger.info(
+            f"Generation params: temperature={temperature}, top_k={top_k}, top_p={top_p}, max_tokens={max_tokens}"
+        )
 
         try:
             # Create output directory
@@ -192,14 +209,28 @@ class DatasetBuilder:
             # 1. Load model or initialize OpenRouter client
             if self.use_openrouter:
                 self.active_model = model
-                self.logger.info(f"Using OpenRouter API with model: {self.active_model}")
-                self.logger.debug(f"OpenRouter max workers: {self.openrouter_max_workers}")
-                self.openrouter_client = OpenRouterClient(api_key=self.openrouter_api_key)
-                self.logger.debug(f"Initializing P2OpenRouter with model: {self.active_model}")
-                self.p2 = P2OpenRouter(client=self.openrouter_client, model=self.active_model)
+                self.logger.info(
+                    f"Using OpenRouter API with model: {self.active_model}"
+                )
+                self.logger.debug(
+                    f"OpenRouter max workers: {self.openrouter_max_workers}"
+                )
+                assert self.openrouter_api_key is not None, (
+                    "API key must be set for OpenRouter"
+                )
+                self.openrouter_client = OpenRouterClient(
+                    api_key=self.openrouter_api_key
+                )
+                self.logger.debug(
+                    f"Initializing P2OpenRouter with model: {self.active_model}"
+                )
+                self.p2 = P2OpenRouter(
+                    client=self.openrouter_client, model=self.active_model
+                )
             else:
                 self.active_model = model
                 self._load_model(model)
+                assert self.model is not None and self.tokenizer is not None
                 self.p2 = P2(self.model, self.tokenizer)
 
             # 2. Load dataset
@@ -208,12 +239,17 @@ class DatasetBuilder:
             # 3. Build steering dataset
             output_file = self._build_caa_dataset(output_dir, limit_samples)
 
-            self.logger.info(f"Finished building steering dataset")
+            self.logger.info("Finished building steering dataset")
 
             # Log OpenRouter usage if applicable
             if self.use_openrouter:
-                self.logger.info(f"Total OpenRouter requests: {self.openrouter_client.get_total_requests()}")
-                self.logger.info(f"Total OpenRouter cost: ${self.openrouter_client.get_total_cost():.6f}")
+                assert self.openrouter_client is not None
+                self.logger.info(
+                    f"Total OpenRouter requests: {self.openrouter_client.get_total_requests()}"
+                )
+                self.logger.info(
+                    f"Total OpenRouter cost: ${self.openrouter_client.get_total_cost():.6f}"
+                )
 
             return output_file
 
@@ -224,7 +260,9 @@ class DatasetBuilder:
     # Alias for backward compatibility
     def build_caa_dataset(self, *args, **kwargs) -> Path:
         """Deprecated: Use build_steer_dataset() instead."""
-        self.logger.warning("build_caa_dataset() is deprecated. Use build_steer_dataset() instead.")
+        self.logger.warning(
+            "build_caa_dataset() is deprecated. Use build_steer_dataset() instead."
+        )
         return self.build_steer_dataset(*args, **kwargs)
 
     def _load_model(self, model_name: str) -> None:
@@ -273,10 +311,12 @@ class DatasetBuilder:
             self.logger.info(f"Loaded dataset: {dataset_name}")
 
             # Validate required fields
-            if len(dataset) > 0:
-                sample = dataset[0]
+            if len(dataset) > 0:  # type: ignore[arg-type]
+                sample = dataset[0]  # type: ignore[index]
                 required_fields = ["speakers", "dialogue", "narrative"]
-                missing_fields = [field for field in required_fields if field not in sample]
+                missing_fields = [
+                    field for field in required_fields if field not in sample
+                ]
                 if missing_fields:
                     self.logger.warning(
                         f"Dataset may be missing required fields: {missing_fields}. "
@@ -288,7 +328,7 @@ class DatasetBuilder:
 
     def _generate_sample_context(
         self, limit_samples: int = 0
-    ) -> Generator[Dict[str, str], None, None]:
+    ) -> Generator[dict[str, str], None, None]:
         """
         Generate conversation contexts from the SoDA dataset.
 
@@ -311,21 +351,22 @@ class DatasetBuilder:
         num_generated = 0
 
         # Calculate total iterations for tqdm
-        total = len(self.dataset) if limit_samples == 0 else limit_samples
-        pbar = tqdm(range(len(self.dataset)), desc="Generating samples", total=total)
+        assert self.dataset is not None
+        total = len(self.dataset) if limit_samples == 0 else limit_samples  # type: ignore[arg-type]
+        pbar = tqdm(range(len(self.dataset)), desc="Generating samples", total=total)  # type: ignore[arg-type]
         for idx in pbar:
-            data = self.dataset[idx]
+            data = self.dataset[idx]  # type: ignore[index]
             # 화자 최소 2명 보장
-            if len(data["speakers"]) < 2 or len(data["dialogue"]) < 1:
+            if len(data["speakers"]) < 2 or len(data["dialogue"]) < 1:  # type: ignore[arg-type]
                 continue
-            asker = data["speakers"][0]
-            answerer = data["speakers"][1]  # 두 번째 인물
+            asker = data["speakers"][0]  # type: ignore[index]
+            answerer = data["speakers"][1]  # type: ignore[index] # 두 번째 인물
             narrative = data["narrative"] or ""
             if narrative == "":
                 continue
-            query = data["dialogue"][0]
+            query = data["dialogue"][0]  # type: ignore[index]
             situation = f"{narrative}\n{asker}: {query}\n"
-            yield {"char_name": answerer, "user_name": asker, "situation": situation}
+            yield {"char_name": answerer, "user_name": asker, "situation": situation}  # type: ignore[misc]
 
             num_generated += 1
             # Update progress bar description with actual count
@@ -335,9 +376,11 @@ class DatasetBuilder:
                 break
         pbar.close()
 
-        self.logger.info(f"Finished generating samples.")
+        self.logger.info("Finished generating samples.")
 
-    def _load_template(self, template_name: str, custom_template_path: str = None) -> jinja2.Template:
+    def _load_template(
+        self, template_name: str, custom_template_path: str | None = None
+    ) -> jinja2.Template:
         """
         Load a Jinja2 template.
 
@@ -356,15 +399,19 @@ class DatasetBuilder:
             FileNotFoundError: If custom template path is provided but file doesn't exist
         """
         # Check for in-memory custom templates first
-        if template_name == 'roleplay_prompt.j2' and hasattr(self, '_custom_roleplay_template'):
+        if template_name == "roleplay_prompt.j2" and hasattr(
+            self, "_custom_roleplay_template"
+        ):
             return self.jinja_env.from_string(self._custom_roleplay_template)
 
         # Load from file if path provided
         if custom_template_path:
             custom_path = Path(custom_template_path)
             if not custom_path.exists():
-                raise FileNotFoundError(f"Custom template not found: {custom_template_path}")
-            with open(custom_path, 'r', encoding='utf-8') as f:
+                raise FileNotFoundError(
+                    f"Custom template not found: {custom_template_path}"
+                )
+            with Path(custom_path).open(encoding="utf-8") as f:
                 template_content = f.read()
             return self.jinja_env.from_string(template_content)
 
@@ -384,24 +431,33 @@ class DatasetBuilder:
             >>> print(template_str)
         """
         # Check for in-memory custom template first
-        if hasattr(self, '_custom_roleplay_template'):
+        if hasattr(self, "_custom_roleplay_template"):
             return self._custom_roleplay_template
 
         # Load from file if custom path provided
         if self.roleplay_prompt_template_path:
-            with open(self.roleplay_prompt_template_path, 'r', encoding='utf-8') as f:
+            with Path(self.roleplay_prompt_template_path).open(encoding="utf-8") as f:
                 return f.read()
 
         # Load default template from package by reading the source file
         import importlib.resources
+
         try:
             # Python 3.9+
-            template_content = importlib.resources.files('psyctl.templates').joinpath('roleplay_prompt.j2').read_text(encoding='utf-8')
+            template_content = (
+                importlib.resources.files("psyctl.templates")
+                .joinpath("roleplay_prompt.j2")
+                .read_text(encoding="utf-8")
+            )
         except AttributeError:
             # Fallback for older Python versions
-            with importlib.resources.path('psyctl.templates', 'roleplay_prompt.j2') as template_path:
-                with open(template_path, 'r', encoding='utf-8') as f:
-                    template_content = f.read()
+            with (
+                importlib.resources.path(
+                    "psyctl.templates", "roleplay_prompt.j2"
+                ) as template_path,
+                Path(template_path).open(encoding="utf-8") as f,
+            ):
+                template_content = f.read()
         return template_content
 
     def set_roleplay_prompt_template(self, template_content: str) -> None:
@@ -463,12 +519,11 @@ class DatasetBuilder:
             for the model to adopt the character's personality and respond appropriately.
         """
         # Load and render template
-        template = self._load_template('roleplay_prompt.j2', self.roleplay_prompt_template_path)
+        template = self._load_template(
+            "roleplay_prompt.j2", self.roleplay_prompt_template_path
+        )
         prompt = template.render(
-            user_name=user_name,
-            char_name=char_name,
-            p2=p2,
-            situation=situation
+            user_name=user_name, char_name=char_name, p2=p2, situation=situation
         )
         if verbose:
             print(prompt)
@@ -476,6 +531,8 @@ class DatasetBuilder:
         # OpenRouter mode
         if self.use_openrouter:
             try:
+                assert self.openrouter_client is not None
+                assert self.active_model is not None
                 _, output_text = self.openrouter_client.generate(
                     prompt=prompt,
                     model=self.active_model,
@@ -495,6 +552,7 @@ class DatasetBuilder:
 
         # 1. Convert user message to chat template
         try:
+            assert self.tokenizer is not None
             tokenized_input = self.tokenizer.apply_chat_template(
                 messages,
                 tokenize=False,
@@ -505,11 +563,13 @@ class DatasetBuilder:
                 tokenized_input, return_tensors="pt", add_special_tokens=False
             )
         except Exception:
+            assert self.tokenizer is not None
             tokenized = self.tokenizer(
                 prompt, return_tensors="pt", add_special_tokens=True
             )
 
         # Move tensors to the same device as the model
+        assert self.model is not None and self.tokenizer is not None
         device = next(self.model.parameters()).device
         tokenized["input_ids"] = tokenized["input_ids"].to(device)
         tokenized["attention_mask"] = tokenized["attention_mask"].to(device)
@@ -539,9 +599,9 @@ class DatasetBuilder:
 
     def _get_batch_answers(
         self,
-        batch_contexts: List[Tuple[str, str, str, str]],
-        batch_size: int = None,
-    ) -> List[str]:
+        batch_contexts: list[tuple[str, str, str, str]],
+        batch_size: int | None = None,
+    ) -> list[str]:
         """
         Generate personality-specific responses for multiple contexts in batches.
 
@@ -568,19 +628,20 @@ class DatasetBuilder:
             return []
 
         # Prepare prompts for all contexts using template
-        template = self._load_template('roleplay_prompt.j2', self.roleplay_prompt_template_path)
+        template = self._load_template(
+            "roleplay_prompt.j2", self.roleplay_prompt_template_path
+        )
         prompts = []
         for user_name, char_name, p2, situation in batch_contexts:
             prompt = template.render(
-                user_name=user_name,
-                char_name=char_name,
-                p2=p2,
-                situation=situation
+                user_name=user_name, char_name=char_name, p2=p2, situation=situation
             )
             prompts.append(prompt)
 
         # OpenRouter mode
         if self.use_openrouter:
+            assert self.openrouter_client is not None
+            assert self.active_model is not None
             results = self.openrouter_client.generate_batch(
                 prompts=prompts,
                 model=self.active_model,
@@ -606,6 +667,7 @@ class DatasetBuilder:
                 tokenized_inputs = []
                 for messages in messages_batch:
                     try:
+                        assert self.tokenizer is not None
                         tokenized_input = self.tokenizer.apply_chat_template(
                             messages,
                             tokenize=False,
@@ -614,9 +676,11 @@ class DatasetBuilder:
                         )
                         tokenized_inputs.append(tokenized_input)
                     except Exception:
+                        assert self.tokenizer is not None
                         tokenized_inputs.append(batch_prompts[len(tokenized_inputs)])
 
                 # Batch tokenization with padding
+                assert self.tokenizer is not None
                 tokenized = self.tokenizer(
                     tokenized_inputs,
                     return_tensors="pt",
@@ -626,6 +690,7 @@ class DatasetBuilder:
                 )
 
                 # Move to device
+                assert self.model is not None and self.tokenizer is not None
                 device = next(self.model.parameters()).device
                 tokenized["input_ids"] = tokenized["input_ids"].to(device)
                 tokenized["attention_mask"] = tokenized["attention_mask"].to(device)
@@ -660,7 +725,9 @@ class DatasetBuilder:
                 all_responses.extend(batch_responses)
 
             except Exception as e:
-                self.logger.warning(f"Batch inference failed, falling back to individual: {e}")
+                self.logger.warning(
+                    f"Batch inference failed, falling back to individual: {e}"
+                )
                 # Fallback to individual processing
                 for prompt in batch_prompts:
                     try:
@@ -670,12 +737,14 @@ class DatasetBuilder:
                         response = self._get_answer(user_name, char_name, p2, situation)
                         all_responses.append(response)
                     except Exception as fallback_e:
-                        self.logger.error(f"Individual fallback also failed: {fallback_e}")
+                        self.logger.error(
+                            f"Individual fallback also failed: {fallback_e}"
+                        )
                         all_responses.append("")
 
         return all_responses
 
-    def _save_sample_to_jsonl(self, sample: Dict[str, str], output_file: Path) -> None:
+    def _save_sample_to_jsonl(self, sample: dict[str, str], output_file: Path) -> None:
         """
         Save CAA data samples to JSONL file.
 
@@ -690,11 +759,12 @@ class DatasetBuilder:
             Uses UTF-8 encoding and ensures proper JSON formatting with
             non-ASCII character support.
         """
-        with self.write_lock:
-            with open(output_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(sample, ensure_ascii=False) + "\n")
+        with self.write_lock, Path(output_file).open("a", encoding="utf-8") as f:
+            f.write(json.dumps(sample, ensure_ascii=False) + "\n")
 
-    def _save_batch_to_jsonl(self, samples: List[Dict[str, str]], output_file: Path) -> None:
+    def _save_batch_to_jsonl(
+        self, samples: list[dict[str, str]], output_file: Path
+    ) -> None:
         """
         Save multiple CAA data samples to JSONL file.
 
@@ -702,10 +772,9 @@ class DatasetBuilder:
             samples (List[Dict[str, str]]): List of samples to save
             output_file (Path): Path to the output JSONL file
         """
-        with self.write_lock:
-            with open(output_file, "a", encoding="utf-8") as f:
-                for sample in samples:
-                    f.write(json.dumps(sample, ensure_ascii=False) + "\n")
+        with self.write_lock, Path(output_file).open("a", encoding="utf-8") as f:
+            for sample in samples:
+                f.write(json.dumps(sample, ensure_ascii=False) + "\n")
 
     def _save_checkpoint(self, output_file: Path, num_generated: int) -> None:
         """
@@ -715,19 +784,19 @@ class DatasetBuilder:
             output_file (Path): Path to the output JSONL file
             num_generated (int): Number of samples generated so far
         """
-        checkpoint_file = output_file.with_suffix('.checkpoint.json')
+        checkpoint_file = output_file.with_suffix(".checkpoint.json")
         checkpoint_data = {
-            'num_generated': num_generated,
-            'output_file': str(output_file),
-            'timestamp': datetime.now().isoformat()
+            "num_generated": num_generated,
+            "output_file": str(output_file),
+            "timestamp": datetime.now().isoformat(),
         }
 
-        with open(checkpoint_file, 'w', encoding='utf-8') as f:
+        with Path(checkpoint_file).open("w", encoding="utf-8") as f:
             json.dump(checkpoint_data, f, ensure_ascii=False, indent=2)
 
         self.logger.info(f"Checkpoint saved: {num_generated} samples generated")
 
-    def _load_checkpoint(self, output_file: Path) -> Optional[Dict]:
+    def _load_checkpoint(self, output_file: Path) -> dict | None:
         """
         Load checkpoint data if available.
 
@@ -735,12 +804,12 @@ class DatasetBuilder:
             output_file (Path): Path to the output JSONL file
 
         Returns:
-            Optional[Dict]: Checkpoint data if available, None otherwise
+            Dict | None: Checkpoint data if available, None otherwise
         """
-        checkpoint_file = output_file.with_suffix('.checkpoint.json')
+        checkpoint_file = output_file.with_suffix(".checkpoint.json")
         if checkpoint_file.exists():
             try:
-                with open(checkpoint_file, 'r', encoding='utf-8') as f:
+                with Path(checkpoint_file).open(encoding="utf-8") as f:
                     return json.load(f)
             except Exception as e:
                 self.logger.warning(f"Failed to load checkpoint: {e}")
@@ -767,7 +836,7 @@ class DatasetBuilder:
             for resuming interrupted runs.
         """
 
-        self.logger.info(f"Building steering dataset with batch processing...")
+        self.logger.info("Building steering dataset with batch processing...")
         self.logger.info(f"Limit samples: {limit_samples}")
         self.logger.info(f"Output directory: {output_dir}")
         self.logger.info(f"Batch size: {INFERENCE_BATCH_SIZE}")
@@ -778,13 +847,16 @@ class DatasetBuilder:
 
         # Check for existing checkpoint
         checkpoint = self._load_checkpoint(output_file)
-        num_generated = checkpoint['num_generated'] if checkpoint else 0
+        num_generated = checkpoint["num_generated"] if checkpoint else 0
 
         if checkpoint:
-            self.logger.info(f"Resuming from checkpoint: {num_generated} samples already generated")
+            self.logger.info(
+                f"Resuming from checkpoint: {num_generated} samples already generated"
+            )
 
         # Generate personality-specific character descriptions using P2
         self.logger.debug(f"Generating positive P2 for personality: {self.personality}")
+        assert self.p2 is not None
         positive_p2 = self.p2.build("Xylo", self.personality)
         self.logger.debug(f"Positive P2 generated: {positive_p2[:200]}...")
 
@@ -801,19 +873,29 @@ class DatasetBuilder:
         )
 
         # Collect contexts in batches
-        context_batch = []
-        batch_size = INFERENCE_BATCH_SIZE // 2  # Each context generates 2 inference calls
+        batch_size = (
+            INFERENCE_BATCH_SIZE // 2
+        )  # Each context generates 2 inference calls
 
         self._build_caa_dataset_sync(
-            output_file, limit_samples, num_generated,
-            positive_template, neutral_template, batch_size
+            output_file,
+            limit_samples,
+            num_generated,
+            positive_template,
+            neutral_template,
+            batch_size,
         )
 
         return output_file
 
     def _build_caa_dataset_sync(
-        self, output_file: Path, limit_samples: int, num_generated: int,
-        positive_template: str, neutral_template: str, batch_size: int
+        self,
+        output_file: Path,
+        limit_samples: int,
+        num_generated: int,
+        positive_template: str,
+        neutral_template: str,
+        batch_size: int,
     ) -> int:
         """Synchronous batch processing implementation."""
 
@@ -827,8 +909,11 @@ class DatasetBuilder:
 
             if len(context_batch) >= batch_size:
                 num_generated += self._process_context_batch_sync(
-                    context_batch, output_file, positive_template,
-                    neutral_template, num_generated
+                    context_batch,
+                    output_file,
+                    positive_template,
+                    neutral_template,
+                    num_generated,
                 )
                 context_batch = []
 
@@ -839,17 +924,25 @@ class DatasetBuilder:
         # Process remaining contexts
         if context_batch:
             num_generated += self._process_context_batch_sync(
-                context_batch, output_file, positive_template,
-                neutral_template, num_generated
+                context_batch,
+                output_file,
+                positive_template,
+                neutral_template,
+                num_generated,
             )
 
-        self.logger.info(f"Finished building steering dataset. Total samples: {num_generated}")
+        self.logger.info(
+            f"Finished building steering dataset. Total samples: {num_generated}"
+        )
         return num_generated
 
-
     def _process_context_batch_sync(
-        self, context_batch: List[Dict], output_file: Path,
-        positive_template: str, neutral_template: str, start_idx: int
+        self,
+        context_batch: list[dict],
+        output_file: Path,
+        positive_template: str,
+        neutral_template: str,
+        start_idx: int,
     ) -> int:
         """Process a batch of contexts synchronously."""
 
@@ -880,7 +973,6 @@ class DatasetBuilder:
             answer_neutral = responses[i * 2 + 1]
 
             sample = {}
-            sample_idx = start_idx + i
 
             # Store raw components only
             sample["situation"] = situation
@@ -905,8 +997,8 @@ class DatasetBuilder:
         num_samples: int,
         timestamp: str,
         dataset_source: str = "allenai/soda",
-        license: Optional[str] = None,
-        repo_id: Optional[str] = None
+        license: str | None = None,
+        repo_id: str | None = None,
     ) -> str:
         """
         Generate HuggingFace dataset card with PSYCTL branding.
@@ -929,12 +1021,14 @@ class DatasetBuilder:
             yaml_parts.append(f"license: {license}")
 
         # Detect language from dataset source
-        language = "ko" if "korean" in dataset_source.lower() or "_kr" in dataset_source.lower() else "en"
+        language = (
+            "ko"
+            if "korean" in dataset_source.lower() or "_kr" in dataset_source.lower()
+            else "en"
+        )
 
         # Determine size category
-        if num_samples < 100:
-            size_category = "n<1K"
-        elif num_samples < 1000:
+        if num_samples < 100 or num_samples < 1000:
             size_category = "n<1K"
         elif num_samples < 10000:
             size_category = "1K<n<10K"
@@ -943,11 +1037,7 @@ class DatasetBuilder:
         else:
             size_category = "100K<n<1M"
 
-        yaml_parts.extend([
-            "language:",
-            f"- {language}",
-            "tags:"
-        ])
+        yaml_parts.extend(["language:", f"- {language}", "tags:"])
         yaml_header = "\n".join(yaml_parts)
 
         return f"""{yaml_header}
@@ -955,7 +1045,7 @@ class DatasetBuilder:
 - caa
 - personality-steering
 - contrastive-activation-addition
-- {personality.lower().replace(' ', '-')}
+- {personality.lower().replace(" ", "-")}
 task_categories:
 - text-generation
 size_categories:
@@ -965,7 +1055,9 @@ size_categories:
 
 ## 📊 Dataset Overview
 
-This dataset contains **{num_samples} samples** designed for extracting personality steering vectors using the **Contrastive Activation Addition (CAA)** method. Each sample presents a scenario with two response options: one exhibiting the target personality trait and one neutral.
+This dataset contains **{
+            num_samples
+        } samples** designed for extracting personality steering vectors using the **Contrastive Activation Addition (CAA)** method. Each sample presents a scenario with two response options: one exhibiting the target personality trait and one neutral.
 
 ### Dataset Details
 
@@ -1025,7 +1117,7 @@ pip install psyctl
 psyctl extract.steering \\
   --model "meta-llama/Llama-3.2-3B-Instruct" \\
   --layer "model.layers[13].mlp.down_proj" \\
-  --dataset "{repo_id or 'YOUR_USERNAME/repo-name'}" \\
+  --dataset "{repo_id or "YOUR_USERNAME/repo-name"}" \\
   --output "./vectors/steering_vector.safetensors"
 ```
 
@@ -1044,16 +1136,22 @@ psyctl steering \\
 - **PSYCTL**: [GitHub Repository](https://github.com/modulabs-personalab/psyctl)
 - **CAA Paper**: [Contrastive Activation Addition](https://arxiv.org/abs/2312.06681)
 - **P2 Paper**: [Evaluating and Inducing Personality](https://arxiv.org/abs/2206.07550)
-- **Source Dataset**: [{dataset_source}](https://huggingface.co/datasets/{dataset_source})
+- **Source Dataset**: [{dataset_source}](https://huggingface.co/datasets/{
+            dataset_source
+        })
 
 ---
-{"" if not license else f'''
+{
+            ""
+            if not license
+            else f'''
 ## 📄 License
 
 {license.upper()} License - See [LICENSE](LICENSE) for details.
 
 ---
-'''}
+'''
+        }
 <div align="center">
   <sub>
     Generated with ❤️ by <a href="https://github.com/modulabs-personalab/psyctl">PSYCTL</a>
@@ -1067,11 +1165,11 @@ psyctl steering \\
         repo_id: str,
         private: bool = False,
         commit_message: str = "Upload steering dataset via PSYCTL",
-        token: Optional[str] = None,
-        license: Optional[str] = None,
-        personality: Optional[str] = None,
-        model: Optional[str] = None,
-        dataset_source: Optional[str] = None
+        token: str | None = None,
+        license: str | None = None,
+        personality: str | None = None,
+        model: str | None = None,
+        dataset_source: str | None = None,
     ) -> str:
         """
         Upload steering dataset to HuggingFace Hub with PSYCTL branding.
@@ -1106,7 +1204,7 @@ psyctl steering \\
             ... )
             >>> print(f"Uploaded to: {url}")
         """
-        from datasets import Dataset
+        from datasets import Dataset  # type: ignore[import-not-found]
         from huggingface_hub import HfApi
 
         # Validate inputs
@@ -1122,15 +1220,15 @@ psyctl steering \\
         # Use provided token or environment variable
         if token is None:
             from psyctl.core.utils import validate_hf_token
+
             token = validate_hf_token()
 
         self.logger.info(f"Loading dataset from: {jsonl_file}")
 
         # Load JSONL to Dataset
         data = []
-        with open(jsonl_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                data.append(json.loads(line))
+        with Path(jsonl_file).open(encoding="utf-8") as f:
+            data.extend(json.loads(line) for line in f)
 
         dataset = Dataset.from_list(data)
         self.logger.info(f"Loaded {len(dataset)} samples")
@@ -1147,12 +1245,12 @@ psyctl steering \\
             timestamp=timestamp,
             dataset_source=dataset_source or self.dataset_name or "allenai/soda",
             license=license,
-            repo_id=repo_id
+            repo_id=repo_id,
         )
 
         # Create README.md
         readme_path = jsonl_file.parent / "README.md"
-        with open(readme_path, 'w', encoding='utf-8') as f:
+        with Path(readme_path).open("w", encoding="utf-8") as f:
             f.write(card_content)
 
         self.logger.info(f"Generated dataset card: {readme_path}")
@@ -1166,7 +1264,7 @@ psyctl steering \\
                 repo_id=repo_id,
                 private=private,
                 token=token,
-                commit_message=commit_message
+                commit_message=commit_message,
             )
 
             # Upload README separately
@@ -1176,7 +1274,7 @@ psyctl steering \\
                 path_in_repo="README.md",
                 repo_id=repo_id,
                 repo_type="dataset",
-                commit_message="Add PSYCTL dataset card"
+                commit_message="Add PSYCTL dataset card",
             )
 
             repo_url = f"https://huggingface.co/datasets/{repo_id}"

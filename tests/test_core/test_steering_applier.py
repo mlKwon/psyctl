@@ -1,9 +1,10 @@
 """Tests for SteeringApplier."""
 
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pytest
 import torch
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, call
 
 from psyctl.core.steering_applier import SteeringApplier
 
@@ -105,7 +106,7 @@ class TestGetSteeringAppliedModel:
         mock_accessor.get_layer.return_value = mock_layer
 
         # Execute
-        model, tokenizer = steering_applier.get_steering_applied_model(
+        model, _tokenizer = steering_applier.get_steering_applied_model(
             steering_vector_path=vector_file,
             model=mock_model,
             tokenizer=mock_tokenizer,
@@ -150,7 +151,7 @@ class TestGetSteeringAppliedModel:
         mock_layer.register_forward_hook.side_effect = [mock_handle_1, mock_handle_2]
 
         # Execute
-        model, tokenizer = steering_applier.get_steering_applied_model(
+        model, _tokenizer = steering_applier.get_steering_applied_model(
             steering_vector_path=vector_file,
             model=mock_model,
             tokenizer=mock_tokenizer,
@@ -195,7 +196,7 @@ class TestGetSteeringAppliedModel:
         mock_accessor.get_layer.return_value = mock_layer
 
         # Execute
-        model, tokenizer = steering_applier.get_steering_applied_model(
+        model, _tokenizer = steering_applier.get_steering_applied_model(
             steering_vector_path=vector_file,
             model=mock_model,
             tokenizer=mock_tokenizer,
@@ -261,7 +262,9 @@ class TestApplySteeringVerbose:
 
             # Verify that full prompt was logged
             log_calls = [str(call) for call in mock_log_info.call_args_list]
-            assert any("Full prompt after chat template" in str(call) for call in log_calls)
+            assert any(
+                "Full prompt after chat template" in str(call) for call in log_calls
+            )
 
     @patch("psyctl.core.steering_applier.VectorStore")
     @patch("psyctl.core.steering_applier.LLMLoader")
@@ -304,25 +307,27 @@ class TestApplySteeringVerbose:
         mock_model.generate.return_value = torch.tensor([[1, 2, 3, 4, 5]])
 
         # Patch logger to capture log calls
-        with patch.object(steering_applier.logger, "debug") as mock_log_debug:
-            with patch.object(steering_applier.logger, "info") as mock_log_info:
-                # Execute
-                steering_applier.apply_steering(
-                    steering_vector_path=vector_file,
-                    model_name="test-model",
-                    input_text="Test input",
-                    verbose=False,
-                )
+        with (
+            patch.object(steering_applier.logger, "debug") as mock_log_debug,
+            patch.object(steering_applier.logger, "info") as mock_log_info,
+        ):
+            # Execute
+            steering_applier.apply_steering(
+                steering_vector_path=vector_file,
+                model_name="test-model",
+                input_text="Test input",
+                verbose=False,
+            )
 
-                # Verify that debug was used for prompt
-                log_calls = [str(call) for call in mock_log_debug.call_args_list]
-                assert any("Prepared prompt" in str(call) for call in log_calls)
+            # Verify that debug was used for prompt
+            log_calls = [str(call) for call in mock_log_debug.call_args_list]
+            assert any("Prepared prompt" in str(call) for call in log_calls)
 
-                # Verify that "Full prompt" was NOT logged to info
-                info_calls = [str(call) for call in mock_log_info.call_args_list]
-                assert not any(
-                    "Full prompt after chat template" in str(call) for call in info_calls
-                )
+            # Verify that "Full prompt" was NOT logged to info
+            info_calls = [str(call) for call in mock_log_info.call_args_list]
+            assert not any(
+                "Full prompt after chat template" in str(call) for call in info_calls
+            )
 
 
 class TestPerLayerStrength:
@@ -368,7 +373,9 @@ class TestPerLayerStrength:
 
         # Patch _make_steering_hook to track calls
         with patch.object(
-            steering_applier, "_make_steering_hook", wraps=steering_applier._make_steering_hook
+            steering_applier,
+            "_make_steering_hook",
+            wraps=steering_applier._make_steering_hook,
         ) as mock_hook:
             # Execute with float strength
             steering_applier.apply_steering(
@@ -424,7 +431,9 @@ class TestPerLayerStrength:
 
         # Patch _make_steering_hook to track calls
         with patch.object(
-            steering_applier, "_make_steering_hook", wraps=steering_applier._make_steering_hook
+            steering_applier,
+            "_make_steering_hook",
+            wraps=steering_applier._make_steering_hook,
         ) as mock_hook:
             # Execute with dict strength
             strength_dict = {
@@ -487,7 +496,9 @@ class TestPerLayerStrength:
 
         # Patch _make_steering_hook to track calls
         with patch.object(
-            steering_applier, "_make_steering_hook", wraps=steering_applier._make_steering_hook
+            steering_applier,
+            "_make_steering_hook",
+            wraps=steering_applier._make_steering_hook,
         ) as mock_hook:
             # Execute with partial dict strength
             strength_dict = {

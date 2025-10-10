@@ -13,7 +13,9 @@ logger = get_logger("dataset")
 
 
 @click.command()
-@click.option("--model", required=False, help="Model name (e.g., google/gemma-3-27b-it)")
+@click.option(
+    "--model", required=False, help="Model name (e.g., google/gemma-3-27b-it)"
+)
 @click.option(
     "--personality",
     required=True,
@@ -76,7 +78,9 @@ def build_steer(
     else:
         if not model:
             logger.error("--model is required when not using OpenRouter")
-            console.print("[red]Error: --model is required when not using --openrouter-api-key[/red]")
+            console.print(
+                "[red]Error: --model is required when not using --openrouter-api-key[/red]"
+            )
             raise click.BadParameter("--model is required when not using OpenRouter")
         logger.info("Using local model mode")
 
@@ -87,7 +91,7 @@ def build_steer(
     logger.info(f"Dataset: {dataset}")
     logger.info(f"Limit samples: {limit_samples}")
 
-    console.print(f"[blue]Building steering dataset...[/blue]")
+    console.print("[blue]Building steering dataset...[/blue]")
 
     if use_openrouter:
         console.print(f"OpenRouter Model: {model}")
@@ -107,7 +111,9 @@ def build_steer(
             openrouter_max_workers=openrouter_max_workers,
             roleplay_prompt_template=roleplay_prompt_template,
         )
-        output_file = builder.build_steer_dataset(model, personality, Path(output), limit_samples, dataset)
+        output_file = builder.build_steer_dataset(
+            model, personality, Path(output), limit_samples, dataset
+        )
 
         logger.info(f"Dataset built successfully: {output_file}")
         console.print(f"[green]Dataset built successfully: {output_file}[/green]")
@@ -121,46 +127,54 @@ def build_steer(
     "--dataset-file",
     required=True,
     type=click.Path(exists=True),
-    help="Path to JSONL dataset file to upload"
+    help="Path to JSONL dataset file to upload",
 )
 @click.option(
     "--repo-id",
     required=True,
-    help="HuggingFace repository ID (format: username/repo-name)"
+    help="HuggingFace repository ID (format: username/repo-name)",
 )
 @click.option(
     "--private",
     is_flag=True,
     default=False,
-    help="Make repository private (default: public)"
+    help="Make repository private (default: public)",
 )
 @click.option(
     "--commit-message",
     default="Upload steering dataset via PSYCTL",
-    help="Commit message for upload"
+    help="Commit message for upload",
 )
 @click.option(
     "--license",
     required=False,
-    help="License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')"
+    help="License identifier (e.g., 'mit', 'apache-2.0', 'cc-by-4.0')",
 )
 @click.option(
     "--personality",
     required=False,
-    help="Personality trait for dataset card (e.g., 'Extroversion', 'Rudeness')"
+    help="Personality trait for dataset card (e.g., 'Extroversion', 'Rudeness')",
 )
 @click.option(
     "--model",
     required=False,
-    help="Model name used to generate dataset (e.g., 'meta-llama/Llama-3.2-3B-Instruct')"
+    help="Model name used to generate dataset (e.g., 'meta-llama/Llama-3.2-3B-Instruct')",
 )
 @click.option(
     "--dataset-source",
     required=False,
-    help="Source dataset used (e.g., 'allenai/soda', 'CaveduckAI/simplified_soda_kr')"
+    help="Source dataset used (e.g., 'allenai/soda', 'CaveduckAI/simplified_soda_kr')",
 )
-def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str,
-           license: str, personality: str, model: str, dataset_source: str):
+def upload(
+    dataset_file: str,
+    repo_id: str,
+    private: bool,
+    commit_message: str,
+    license: str,
+    personality: str,
+    model: str,
+    dataset_source: str,
+):
     """Upload steering dataset to HuggingFace Hub."""
     from psyctl.core.utils import validate_hf_token
 
@@ -193,10 +207,10 @@ def upload(dataset_file: str, repo_id: str, private: bool, commit_message: str,
             license=license,
             personality=personality,
             model=model,
-            dataset_source=dataset_source
+            dataset_source=dataset_source,
         )
 
-        logger.info(f"Upload completed successfully")
+        logger.info("Upload completed successfully")
         console.print(f"[green]Successfully uploaded to: {repo_url}[/green]")
         console.print(f"\n[blue]View your dataset at:[/blue]\n{repo_url}")
 

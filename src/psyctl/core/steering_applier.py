@@ -1,7 +1,8 @@
 """Steering vector applier for text generation."""
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -26,10 +27,10 @@ class SteeringApplier:
         self,
         steering_vector_path: Path,
         input_text: str,
-        model_name: Optional[str] = None,
-        model: Optional[nn.Module] = None,
-        tokenizer: Optional[AutoTokenizer] = None,
-        strength: Union[float, Dict[str, float]] = 1.0,
+        model_name: str | None = None,
+        model: nn.Module | None = None,
+        tokenizer: AutoTokenizer | None = None,
+        strength: float | dict[str, float] = 1.0,
         max_new_tokens: int = 200,
         temperature: float = 1.0,
         top_p: float = 0.9,
@@ -89,7 +90,9 @@ class SteeringApplier:
         """
         # Validate model parameters
         if model is not None and model_name is not None:
-            raise ValueError("Cannot provide both 'model' and 'model_name'. Choose one.")
+            raise ValueError(
+                "Cannot provide both 'model' and 'model_name'. Choose one."
+            )
         if model is None and model_name is None:
             raise ValueError("Must provide either 'model' or 'model_name'.")
         if model is not None and tokenizer is None:
@@ -99,8 +102,9 @@ class SteeringApplier:
         if model_name:
             model_identifier = model_name
         else:
+            assert model is not None
             try:
-                model_identifier = model.config._name_or_path
+                model_identifier = model.config._name_or_path  # type: ignore[union-attr]
             except AttributeError:
                 model_identifier = "unknown"
 
@@ -118,6 +122,7 @@ class SteeringApplier:
 
             # 1. Load model and tokenizer if not provided
             if model is None:
+                assert model_name is not None
                 self.logger.info("Loading model and tokenizer...")
                 model, tokenizer = self.llm_loader.load_model(model_name)
             else:
@@ -125,9 +130,7 @@ class SteeringApplier:
 
             # 2. Load steering vectors and metadata
             self.logger.info("Loading steering vectors...")
-            vectors, metadata = self.vector_store.load_multi_layer(
-                steering_vector_path
-            )
+            vectors, metadata = self.vector_store.load_multi_layer(steering_vector_path)
 
             # 3. Prepare prompt with chat template
             prompt = self._prepare_prompt(input_text, tokenizer)
@@ -136,7 +139,8 @@ class SteeringApplier:
             else:
                 self.logger.debug(f"Prepared prompt: {prompt[:100]}...")
 
-            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+            assert model is not None and tokenizer is not None
+            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)  # type: ignore[call-arg]
             prompt_length = inputs.input_ids.shape[1]
             self.logger.debug(f"Prompt length: {prompt_length} tokens")
 
@@ -145,9 +149,7 @@ class SteeringApplier:
             hooks = []
             try:
                 for layer_name, steer_vec in vectors.items():
-                    layer_module = self._get_layer_module(
-                        model, layer_name, metadata
-                    )
+                    layer_module = self._get_layer_module(model, layer_name, metadata)
                     # Resolve strength for this layer
                     layer_strength = self._resolve_layer_strength(strength, layer_name)
                     hook = self._make_steering_hook(
@@ -162,21 +164,20 @@ class SteeringApplier:
                 # 5. Generate with steering
                 self.logger.info("Generating text with steering...")
                 with torch.inference_mode():
-                    output_ids = model.generate(
+                    output_ids = model.generate(  # type: ignore[attr-defined]
                         **inputs,
                         max_new_tokens=max_new_tokens,
-                        do_sample=True if temperature > 0 else False,
+                        do_sample=temperature > 0,
                         temperature=temperature if temperature > 0 else None,
                         top_p=top_p,
                         top_k=top_k,
-                        pad_token_id=tokenizer.pad_token_id
-                        or tokenizer.eos_token_id,
-                        eos_token_id=tokenizer.eos_token_id,
+                        pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,  # type: ignore[attr-defined]
+                        eos_token_id=tokenizer.eos_token_id,  # type: ignore[union-attr]
                         use_cache=False,  # Required when using hooks
                     )
 
                 # 6. Decode and return
-                result = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+                result = tokenizer.decode(output_ids[0], skip_special_tokens=True)  # type: ignore[call-arg]
                 generated_text = result.replace(prompt, "").strip()
 
                 self.logger.success("Text generation completed successfully")
@@ -207,7 +208,7 @@ class SteeringApplier:
         if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
             try:
                 messages = [{"role": "user", "content": input_text}]
-                prompt = tokenizer.apply_chat_template(
+                prompt = tokenizer.apply_chat_template(  # type: ignore[call-arg]
                     messages, tokenize=False, add_generation_prompt=True
                 )
                 self.logger.debug("Applied chat template")
@@ -218,7 +219,7 @@ class SteeringApplier:
         # Fallback to raw input
         return input_text
 
-    def _get_layer_module(self, model, layer_name: str, metadata: Dict):
+    def _get_layer_module(self, model, layer_name: str, metadata: dict):
         """
         Get layer module from model using layer name.
 
@@ -296,7 +297,7 @@ class SteeringApplier:
 
             # Return in original format
             if extra_outputs:
-                return (out,) + extra_outputs
+                return (out, *extra_outputs)
             else:
                 return out
 
@@ -304,7 +305,7 @@ class SteeringApplier:
 
     def _resolve_layer_strength(
         self,
-        strength: Union[float, Dict[str, float]],
+        strength: float | dict[str, float],
         layer_name: str,
         default: float = 1.0,
     ) -> float:
@@ -326,13 +327,13 @@ class SteeringApplier:
     def get_steering_applied_model(
         self,
         steering_vector_path: Path,
-        model_name: Optional[str] = None,
-        model: Optional[nn.Module] = None,
-        tokenizer: Optional[AutoTokenizer] = None,
-        strength: Union[float, Dict[str, float]] = 1.0,
+        model_name: str | None = None,
+        model: nn.Module | None = None,
+        tokenizer: AutoTokenizer | None = None,
+        strength: float | dict[str, float] = 1.0,
         prompt_length: int = 0,
         orthogonal: bool = False,
-    ) -> Tuple[nn.Module, AutoTokenizer]:
+    ) -> tuple[nn.Module, AutoTokenizer]:
         """
         Apply steering vector hooks to model and return steered model.
 
@@ -370,7 +371,7 @@ class SteeringApplier:
             >>>
             >>> # Use multiple times
             >>> for prompt in ["Hello", "How are you?"]:
-            ...     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+            ...     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)  # type: ignore[call-arg]
             ...     outputs = model.generate(**inputs, max_new_tokens=50, use_cache=False)
             ...     print(tokenizer.decode(outputs[0], skip_special_tokens=True))
             >>>
@@ -379,7 +380,9 @@ class SteeringApplier:
         """
         # Validate model parameters
         if model is not None and model_name is not None:
-            raise ValueError("Cannot provide both 'model' and 'model_name'. Choose one.")
+            raise ValueError(
+                "Cannot provide both 'model' and 'model_name'. Choose one."
+            )
         if model is None and model_name is None:
             raise ValueError("Must provide either 'model' or 'model_name'.")
         if model is not None and tokenizer is None:
@@ -389,8 +392,9 @@ class SteeringApplier:
         if model_name:
             model_identifier = model_name
         else:
+            assert model is not None
             try:
-                model_identifier = model.config._name_or_path
+                model_identifier = model.config._name_or_path  # type: ignore[union-attr]
             except AttributeError:
                 model_identifier = "unknown"
 
@@ -407,6 +411,7 @@ class SteeringApplier:
 
             # 1. Load model and tokenizer if not provided
             if model is None:
+                assert model_name is not None
                 self.logger.info("Loading model and tokenizer...")
                 model, tokenizer = self.llm_loader.load_model(model_name)
             else:
@@ -414,9 +419,7 @@ class SteeringApplier:
 
             # 2. Load steering vectors and metadata
             self.logger.info("Loading steering vectors...")
-            vectors, metadata = self.vector_store.load_multi_layer(
-                steering_vector_path
-            )
+            vectors, metadata = self.vector_store.load_multi_layer(steering_vector_path)
 
             # 3. Register hooks for each layer
             self.logger.info(f"Registering hooks for {len(vectors)} layers...")
@@ -435,23 +438,24 @@ class SteeringApplier:
                 )
 
             # 4. Store handles in model and add cleanup method
-            model._steering_handles = hooks
+            model._steering_handles = hooks  # type: ignore[attr-defined]
 
             def remove_steering():
                 """Remove all steering hooks from this model."""
                 if hasattr(model, "_steering_handles"):
-                    for handle in model._steering_handles:
+                    for handle in model._steering_handles:  # type: ignore[attr-defined]
                         handle.remove()
-                    del model._steering_handles
+                    del model._steering_handles  # type: ignore[attr-defined]
                     self.logger.info("Removed all steering hooks")
                 else:
                     self.logger.warning("No steering hooks found on model")
 
-            model.remove_steering = remove_steering
+            model.remove_steering = remove_steering  # type: ignore[attr-defined]
 
             self.logger.success(
                 f"Successfully applied steering hooks to {len(vectors)} layers"
             )
+            assert model is not None and tokenizer is not None
             return model, tokenizer
 
         except Exception as e:

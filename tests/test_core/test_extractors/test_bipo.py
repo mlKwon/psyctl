@@ -57,14 +57,14 @@ def mock_dataset():
             "situation": "You are at a party.\nSomeone asks: How do you feel about parties?",
             "char_name": "Alice",
             "positive": "I love parties and meeting new people!",
-            "neutral": "Parties are okay."
+            "neutral": "Parties are okay.",
         },
         {
             "situation": "You are meeting a friend.\nFriend asks: Do you enjoy socializing?",
             "char_name": "Bob",
             "positive": "I enjoy socializing very much!",
-            "neutral": "I sometimes socialize."
-        }
+            "neutral": "I sometimes socialize.",
+        },
     ]
 
 
@@ -83,8 +83,8 @@ class TestBiPOVectorExtractor:
         assert extractor.layer_accessor is not None
         assert extractor.logger is not None
 
-    @patch('psyctl.core.extractors.bipo.SteerDatasetLoader')
-    @patch('psyctl.core.extractors.bipo.LayerAccessor')
+    @patch("psyctl.core.extractors.bipo.SteerDatasetLoader")
+    @patch("psyctl.core.extractors.bipo.LayerAccessor")
     def test_extract_validates_layers(
         self, mock_layer_accessor_class, mock_dataset_loader_class, mock_model
     ):
@@ -103,7 +103,7 @@ class TestBiPOVectorExtractor:
                 tokenizer=MagicMock(),
                 layers=["invalid.layer"],
                 dataset_path=Path("./test"),
-                epochs=1
+                epochs=1,
             )
 
     def test_prepare_dataset(self, extractor, mock_dataset, mock_tokenizer):
@@ -111,7 +111,9 @@ class TestBiPOVectorExtractor:
         samples = extractor._prepare_dataset(mock_dataset, mock_tokenizer)
 
         assert len(samples) == 2
-        assert all(len(sample) == 4 for sample in samples)  # (situation, char_name, positive, neutral)
+        assert all(
+            len(sample) == 4 for sample in samples
+        )  # (situation, char_name, positive, neutral)
         assert "party" in samples[0][0].lower()  # situation
         assert samples[0][1] == "Alice"  # char_name
         assert samples[0][2] == "I love parties and meeting new people!"  # positive
@@ -130,7 +132,7 @@ class TestBiPOVectorExtractor:
             char_name="TestChar",
             response="Test response",
             layer_module=layer_module,
-            steering=None
+            steering=None,
         )
 
         assert isinstance(logprob, torch.Tensor)
@@ -150,15 +152,13 @@ class TestBiPOVectorExtractor:
             char_name="TestChar",
             response="Test response",
             layer_module=layer_module,
-            steering=steering_vec
+            steering=steering_vec,
         )
 
         assert isinstance(logprob, torch.Tensor)
         assert logprob.ndim == 0
 
-    def test_get_response_logprob_handles_tuple_output(
-        self, extractor, mock_tokenizer
-    ):
+    def test_get_response_logprob_handles_tuple_output(self, extractor, mock_tokenizer):
         """Test that hook handles tuple outputs from layers."""
         # Mock model that returns tuple output
         model = MagicMock(spec=nn.Module)
@@ -186,7 +186,7 @@ class TestBiPOVectorExtractor:
             char_name="TestChar",
             response="Response",
             layer_module=layer_module,
-            steering=steering_vec
+            steering=steering_vec,
         )
 
         assert isinstance(logprob, torch.Tensor)
@@ -205,7 +205,7 @@ class TestBiPOVectorExtractor:
             layer_module=layer_module,
             batch=batch[:1],  # Single sample
             v=v,
-            beta=0.1
+            beta=0.1,
         )
 
         assert isinstance(loss, torch.Tensor)
@@ -214,6 +214,7 @@ class TestBiPOVectorExtractor:
 
     def test_train_steering_vector(self, extractor, mock_dataset):
         """Test steering vector training completes without errors."""
+
         # Create a simple real model for testing
         class SimpleModel(nn.Module):
             def __init__(self):
@@ -243,7 +244,7 @@ class TestBiPOVectorExtractor:
         minimal_dataset = [mock_dataset[0]]
 
         # Train with minimal settings - just test it runs
-        with patch.object(extractor, '_compute_bipo_loss') as mock_loss:
+        with patch.object(extractor, "_compute_bipo_loss") as mock_loss:
             # Return a simple loss that requires grad
             mock_loss.return_value = torch.tensor(0.5, requires_grad=True)
 
@@ -259,7 +260,7 @@ class TestBiPOVectorExtractor:
                 lr=5e-4,
                 beta=0.1,
                 epochs=1,
-                weight_decay=0.01
+                weight_decay=0.01,
             )
 
             assert isinstance(steering_vec, torch.Tensor)
@@ -268,88 +269,94 @@ class TestBiPOVectorExtractor:
 
     def test_extract_normalization(self, mock_model, mock_tokenizer, tmp_path):
         """Test vector normalization option."""
-        with patch('psyctl.core.extractors.bipo.SteerDatasetLoader') as mock_loader_class:
-            with patch('psyctl.core.extractors.bipo.LayerAccessor') as mock_accessor_class:
-                # Setup mocks
-                mock_loader = MagicMock()
-                mock_loader.load.return_value = [
-                    {
-                        "situation": "Test situation",
-                        "char_name": "TestChar",
-                        "positive": "P1",
-                        "neutral": "N1"
-                    }
-                ]
-                mock_loader_class.return_value = mock_loader
+        with (
+            patch(
+                "psyctl.core.extractors.bipo.SteerDatasetLoader"
+            ) as mock_loader_class,
+            patch("psyctl.core.extractors.bipo.LayerAccessor") as mock_accessor_class,
+        ):
+            # Setup mocks
+            mock_loader = MagicMock()
+            mock_loader.load.return_value = [
+                {
+                    "situation": "Test situation",
+                    "char_name": "TestChar",
+                    "positive": "P1",
+                    "neutral": "N1",
+                }
+            ]
+            mock_loader_class.return_value = mock_loader
 
-                mock_accessor = MagicMock()
-                mock_accessor.validate_layers.return_value = True
-                mock_accessor.get_layer.return_value = MagicMock(spec=nn.Module)
-                mock_accessor_class.return_value = mock_accessor
+            mock_accessor = MagicMock()
+            mock_accessor.validate_layers.return_value = True
+            mock_accessor.get_layer.return_value = MagicMock(spec=nn.Module)
+            mock_accessor_class.return_value = mock_accessor
 
-                extractor = BiPOVectorExtractor()
+            extractor = BiPOVectorExtractor()
 
-                # Mock training to return a non-normalized vector
-                with patch.object(
-                    extractor,
-                    '_train_steering_vector',
-                    return_value=torch.tensor([3.0, 4.0])  # norm = 5.0
-                ):
-                    vectors = extractor.extract(
-                        model=mock_model,
-                        tokenizer=mock_tokenizer,
-                        layers=["test.layer"],
-                        dataset_path=tmp_path,
-                        normalize=True,
-                        epochs=1,
-                        batch_size=1
-                    )
+            # Mock training to return a non-normalized vector
+            with patch.object(
+                extractor,
+                "_train_steering_vector",
+                return_value=torch.tensor([3.0, 4.0]),  # norm = 5.0
+            ):
+                vectors = extractor.extract(
+                    model=mock_model,
+                    tokenizer=mock_tokenizer,
+                    layers=["test.layer"],
+                    dataset_path=tmp_path,
+                    normalize=True,
+                    epochs=1,
+                    batch_size=1,
+                )
 
-                    vec = vectors["test.layer"]
-                    assert pytest.approx(vec.norm().item(), rel=1e-5) == 1.0
+                vec = vectors["test.layer"]
+                assert pytest.approx(vec.norm().item(), rel=1e-5) == 1.0
 
-    def test_extract_without_normalization(
-        self, mock_model, mock_tokenizer, tmp_path
-    ):
+    def test_extract_without_normalization(self, mock_model, mock_tokenizer, tmp_path):
         """Test extraction without normalization."""
-        with patch('psyctl.core.extractors.bipo.SteerDatasetLoader') as mock_loader_class:
-            with patch('psyctl.core.extractors.bipo.LayerAccessor') as mock_accessor_class:
-                # Setup mocks
-                mock_loader = MagicMock()
-                mock_loader.load.return_value = [
-                    {
-                        "situation": "Test situation",
-                        "char_name": "TestChar",
-                        "positive": "P1",
-                        "neutral": "N1"
-                    }
-                ]
-                mock_loader_class.return_value = mock_loader
+        with (
+            patch(
+                "psyctl.core.extractors.bipo.SteerDatasetLoader"
+            ) as mock_loader_class,
+            patch("psyctl.core.extractors.bipo.LayerAccessor") as mock_accessor_class,
+        ):
+            # Setup mocks
+            mock_loader = MagicMock()
+            mock_loader.load.return_value = [
+                {
+                    "situation": "Test situation",
+                    "char_name": "TestChar",
+                    "positive": "P1",
+                    "neutral": "N1",
+                }
+            ]
+            mock_loader_class.return_value = mock_loader
 
-                mock_accessor = MagicMock()
-                mock_accessor.validate_layers.return_value = True
-                mock_accessor.get_layer.return_value = MagicMock(spec=nn.Module)
-                mock_accessor_class.return_value = mock_accessor
+            mock_accessor = MagicMock()
+            mock_accessor.validate_layers.return_value = True
+            mock_accessor.get_layer.return_value = MagicMock(spec=nn.Module)
+            mock_accessor_class.return_value = mock_accessor
 
-                extractor = BiPOVectorExtractor()
+            extractor = BiPOVectorExtractor()
 
-                with patch.object(
-                    extractor,
-                    '_train_steering_vector',
-                    return_value=torch.tensor([3.0, 4.0])
-                ):
-                    vectors = extractor.extract(
-                        model=mock_model,
-                        tokenizer=mock_tokenizer,
-                        layers=["test.layer"],
-                        dataset_path=tmp_path,
-                        normalize=False,
-                        epochs=1,
-                        batch_size=1
-                    )
+            with patch.object(
+                extractor,
+                "_train_steering_vector",
+                return_value=torch.tensor([3.0, 4.0]),
+            ):
+                vectors = extractor.extract(
+                    model=mock_model,
+                    tokenizer=mock_tokenizer,
+                    layers=["test.layer"],
+                    dataset_path=tmp_path,
+                    normalize=False,
+                    epochs=1,
+                    batch_size=1,
+                )
 
-                    vec = vectors["test.layer"]
-                    assert pytest.approx(vec.norm().item(), rel=1e-5) == 5.0
+                vec = vectors["test.layer"]
+                assert pytest.approx(vec.norm().item(), rel=1e-5) == 5.0
 
     def test_format_with_chat_template_available(self, extractor):
         """Test formatting with chat template when available."""
@@ -377,7 +384,9 @@ class TestBiPOVectorExtractor:
         """Test formatting when chat template raises error."""
         tokenizer = MagicMock()
         tokenizer.chat_template = "template"
-        tokenizer.apply_chat_template = MagicMock(side_effect=Exception("Template error"))
+        tokenizer.apply_chat_template = MagicMock(
+            side_effect=Exception("Template error")
+        )
 
         result = extractor._format_with_chat_template(tokenizer, "Test")
 

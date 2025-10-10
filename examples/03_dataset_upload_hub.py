@@ -24,11 +24,12 @@ Use Cases:
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 from psyctl.core.dataset_builder import DatasetBuilder
-from psyctl.core.utils import validate_hf_token
 from psyctl.core.logger import get_logger
+from psyctl.core.utils import validate_hf_token
 
 # Initialize logger
 logger = get_logger("dataset_upload_example")
@@ -38,20 +39,25 @@ load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 if not HF_TOKEN:
-    raise ValueError("HF_TOKEN not found in .env file. Please set it with write permission.")
+    raise ValueError(
+        "HF_TOKEN not found in .env file. Please set it with write permission."
+    )
 
 # Configuration
-DATASET_FILE = Path("./results/dataset_local/caa_dataset_20250107_143022.jsonl")  # Change to your dataset file
+DATASET_FILE = Path(
+    "./results/dataset_local/caa_dataset_20250107_143022.jsonl"
+)  # Change to your dataset file
 REPO_ID = "username/extroversion-caa"  # Change to your HuggingFace username/repo-name
 PRIVATE = False  # Set to True for private repository
 LICENSE = "mit"  # Options: 'mit', 'apache-2.0', 'cc-by-4.0', 'cc-by-nc-4.0', etc.
 
+
 def main():
     """Upload CAA dataset to HuggingFace Hub."""
 
-    print("="*80)
+    print("=" * 80)
     print("Dataset Upload to HuggingFace Hub")
-    print("="*80)
+    print("=" * 80)
     print(f"Dataset file: {DATASET_FILE}")
     print(f"Repository: {REPO_ID}")
     print(f"Privacy: {'Private' if PRIVATE else 'Public'}")
@@ -88,10 +94,11 @@ def main():
         )
 
     # Count samples in dataset
-    sample_count = sum(1 for _ in open(DATASET_FILE, 'r', encoding='utf-8'))
+    with Path(DATASET_FILE).open(encoding="utf-8") as f:
+        sample_count = sum(1 for _ in f)
     file_size = DATASET_FILE.stat().st_size / 1024  # KB
 
-    print(f"[OK] Dataset file found")
+    print("[OK] Dataset file found")
     print(f"     Samples: {sample_count}")
     print(f"     Size: {file_size:.2f} KB")
 
@@ -111,10 +118,10 @@ def main():
             repo_id=REPO_ID,
             private=PRIVATE,
             license=LICENSE,
-            token=token
+            token=token,
         )
 
-        print(f"\n[SUCCESS] Dataset uploaded successfully!")
+        print("\n[SUCCESS] Dataset uploaded successfully!")
         print(f"Repository URL: {repo_url}")
         logger.info(f"Dataset uploaded to: {repo_url}")
 
@@ -130,9 +137,9 @@ def main():
     # =========================================================================
     # Step 4: Usage Instructions
     # =========================================================================
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("UPLOAD SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print(f"Dataset: {DATASET_FILE.name}")
     print(f"Repository: {REPO_ID}")
     print(f"URL: {repo_url}")
@@ -148,13 +155,14 @@ def main():
     print()
     print("Next steps:")
     print(f"1. View your dataset at: {repo_url}")
-    print(f"2. Use it for extraction:")
-    print(f"   psyctl extract.steering \\")
-    print(f"     --model \"google/gemma-3-270m-it\" \\")
-    print(f"     --layer \"model.layers.9.mlp.down_proj\" \\")
-    print(f"     --dataset \"{REPO_ID}\" \\")
-    print(f"     --output \"./steering_vector/out.safetensors\"")
-    print("="*80)
+    print("2. Use it for extraction:")
+    print("   psyctl extract.steering \\")
+    print('     --model "google/gemma-3-270m-it" \\')
+    print('     --layer "model.layers.9.mlp.down_proj" \\')
+    print(f'     --dataset "{REPO_ID}" \\')
+    print('     --output "./steering_vector/out.safetensors"')
+    print("=" * 80)
+
 
 if __name__ == "__main__":
     main()

@@ -1,9 +1,9 @@
 """Integration tests for DatasetBuilder functionality using real models and data."""
 
 import json
-import os
-import pytest
 from pathlib import Path
+
+import pytest
 
 from psyctl.core.dataset_builder import DatasetBuilder
 from psyctl.core.logger import get_logger, setup_logging
@@ -17,22 +17,22 @@ logger = get_logger("test_dataset_builder")
 def model_and_tokenizer():
     """Load a real model and tokenizer for integration testing."""
     try:
-        from transformers import AutoTokenizer, AutoModelForCausalLM
-        
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
         # Use a smaller model for testing
         model_name = "google/gemma-3-270m-it"  # Good quality
-        
+
         logger.info(f"Loading model: {model_name}")
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(model_name)
-        
+
         # Add padding token if not present
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-            
+
         logger.success(f"Successfully loaded model: {model_name}")
         return model, tokenizer
-        
+
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
         pytest.skip(f"Failed to load model: {e}")
@@ -67,23 +67,25 @@ def test_dataset_builder_initialization():
 def test_load_dataset_real(dataset_builder_instance):
     """Test _load_dataset method with real dataset."""
     logger.info("Testing _load_dataset method with real dataset")
-    
+
     # Test the actual _load_dataset method to see HF_TOKEN logging
     try:
         dataset_builder_instance._load_dataset()
         logger.success("Successfully loaded dataset using _load_dataset method")
-        
+
         # Check dataset structure
         assert dataset_builder_instance.dataset is not None
         assert len(dataset_builder_instance.dataset) > 0
-        
+
         sample = dataset_builder_instance.dataset[0]
         assert "speakers" in sample
         assert "dialogue" in sample
         assert "narrative" in sample
-        
-        logger.success(f"_load_dataset test passed - loaded {len(dataset_builder_instance.dataset)} samples")
-        
+
+        logger.success(
+            f"_load_dataset test passed - loaded {len(dataset_builder_instance.dataset)} samples"
+        )
+
     except Exception as e:
         logger.error(f"Failed to load dataset: {e}")
         pytest.skip(f"Failed to load dataset: {e}")
@@ -92,41 +94,43 @@ def test_load_dataset_real(dataset_builder_instance):
 def test_get_answer_real(dataset_builder_instance, model_and_tokenizer):
     """Test _get_answer method with real model."""
     logger.info("Testing _get_answer method with real model")
-    
+
     model, tokenizer = model_and_tokenizer
     dataset_builder_instance.model = model
     dataset_builder_instance.tokenizer = tokenizer
-    
+
     # Test with a simple scenario
     result = dataset_builder_instance._get_answer(
         user_name="Alice",
         char_name="Bob",
         p2="Bob is an extroverted person who loves socializing.",
         situation="Alice meets Bob at a party.\nAlice: Hello, how are you?\n",
-        verbose=False
+        verbose=False,
     )
-    
+
     assert isinstance(result, str)
     assert len(result) > 0
-    
+
     logger.success("_get_answer test passed")
 
 
 def test_gen_caa_data(dataset_builder_instance):
     """Test _gen_caa_data method."""
     logger.info("Testing _gen_caa_data method")
-    
+
     char_name = "Alice"
     situation = "Alice meets Bob at a coffee shop.\nBob: Hello, how are you?\n"
     answer_pos = "I'm excited to meet you!"
     answer_neg = "I'm feeling a bit shy today."
-    
-    result = dataset_builder_instance._gen_caa_data(char_name, situation, answer_pos, answer_neg)
-    
+
+    result = dataset_builder_instance._gen_caa_data(
+        char_name, situation, answer_pos, answer_neg
+    )
+
     # Check that result is a single string template
     assert isinstance(result, str)
     assert len(result) > 0
-    
+
     # Check template content
     assert "[Situation]" in result
     assert "Alice meets Bob at a coffee shop" in result
@@ -136,7 +140,7 @@ def test_gen_caa_data(dataset_builder_instance):
     assert "1. I'm excited to meet you!" in result
     assert "2. I'm feeling a bit shy today." in result
     assert "[Answer]" in result
-    
+
     logger.success("_gen_caa_data test passed")
 
 
@@ -148,7 +152,7 @@ def test_save_sample_to_jsonl(dataset_builder_instance, tmp_path):
         "situation": "test situation",
         "char_name": "Alice",
         "positive": "positive answer",
-        "neutral": "neutral answer"
+        "neutral": "neutral answer",
     }
     output_file = tmp_path / "test_output.jsonl"
 
@@ -158,7 +162,7 @@ def test_save_sample_to_jsonl(dataset_builder_instance, tmp_path):
     assert output_file.exists()
 
     # Check file content
-    with open(output_file, "r", encoding="utf-8") as f:
+    with Path(output_file).open(encoding="utf-8") as f:
         content = f.read().strip()
         loaded_sample = json.loads(content)
 
@@ -171,24 +175,27 @@ def test_save_sample_to_jsonl(dataset_builder_instance, tmp_path):
     logger.success("_save_sample_to_jsonl test passed")
 
 
-def test_build_caa_dataset_real_integration(dataset_builder_instance, model_and_tokenizer, tmp_path):
+def test_build_caa_dataset_real_integration(
+    dataset_builder_instance, model_and_tokenizer, tmp_path
+):
     """Test complete build_caa_dataset integration with real data."""
     logger.info("Testing complete build_caa_dataset integration with real data")
-    
+
     model, tokenizer = model_and_tokenizer
-    
+
     # Mock the LLMLoader to return our test model
     from unittest.mock import patch
-    with patch.object(dataset_builder_instance.llm_loader, 'load_model') as mock_load:
+
+    with patch.object(dataset_builder_instance.llm_loader, "load_model") as mock_load:
         mock_load.return_value = (model, tokenizer)
-        
+
         # Test the complete build process with 10 samples
         output_dir = tmp_path / "test_dataset_real"
         output_file = dataset_builder_instance.build_caa_dataset(
             model="test-model",
             personality="Extroversion",
             output_dir=output_dir,
-            limit_samples=10
+            limit_samples=10,
         )
 
         # Check results
@@ -198,15 +205,15 @@ def test_build_caa_dataset_real_integration(dataset_builder_instance, model_and_
         assert dataset_builder_instance.model == model
         assert dataset_builder_instance.tokenizer == tokenizer
         assert dataset_builder_instance.personality == "Extroversion"
-        
+
         # Check that output file was created
         output_files = list(output_dir.glob("caa_dataset_*.jsonl"))
         assert len(output_files) == 1
-        
+
         # Check file content
-        with open(output_files[0], "r", encoding="utf-8") as f:
+        with Path(output_files[0]).open(encoding="utf-8") as f:
             lines = f.readlines()
-        
+
         # Should have 10 lines (one for each sample)
         assert len(lines) == 10
 
@@ -218,46 +225,49 @@ def test_build_caa_dataset_real_integration(dataset_builder_instance, model_and_
             assert "char_name" in sample
             assert "positive" in sample
             assert "neutral" in sample
-    
+
     logger.success("build_caa_dataset real integration test passed")
 
 
-def test_build_caa_dataset_with_small_limit(dataset_builder_instance, model_and_tokenizer, tmp_path):
+def test_build_caa_dataset_with_small_limit(
+    dataset_builder_instance, model_and_tokenizer, tmp_path
+):
     """Test build_caa_dataset with small sample limit."""
     logger.info("Testing build_caa_dataset with small sample limit")
-    
+
     model, tokenizer = model_and_tokenizer
-    
+
     # Mock the LLMLoader to return our test model
     from unittest.mock import patch
-    with patch.object(dataset_builder_instance.llm_loader, 'load_model') as mock_load:
+
+    with patch.object(dataset_builder_instance.llm_loader, "load_model") as mock_load:
         mock_load.return_value = (model, tokenizer)
-        
+
         # Test with limit of 3 samples
         output_dir = tmp_path / "test_dataset_small"
         output_file = dataset_builder_instance.build_caa_dataset(
             model="test-model",
             personality="Extroversion",
             output_dir=output_dir,
-            limit_samples=3
+            limit_samples=3,
         )
 
         # Should generate output file
         assert output_file is not None
         assert output_file.exists()
         assert output_file.suffix == ".jsonl"
-        
+
         # Check that output file was created
         output_files = list(output_dir.glob("caa_dataset_*.jsonl"))
         assert len(output_files) == 1
-        
+
         # Check file content
-        with open(output_files[0], "r", encoding="utf-8") as f:
+        with Path(output_files[0]).open(encoding="utf-8") as f:
             lines = f.readlines()
-        
+
         # Should have 3 lines
         assert len(lines) == 3
-    
+
     logger.success("build_caa_dataset with small limit test passed")
 
 
@@ -266,12 +276,12 @@ def test_build_caa_dataset_error_handling(dataset_builder_instance):
     logger.info("Testing build_caa_dataset error handling")
 
     # Test with invalid model
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         dataset_builder_instance.build_caa_dataset(
             model="invalid-model",
             personality="Extroversion",
             output_dir=Path("./test_output"),
-            limit_samples=1
+            limit_samples=1,
         )
 
     logger.success("build_caa_dataset error handling test passed")
@@ -282,10 +292,10 @@ def test_template_loading(dataset_builder_instance):
     logger.info("Testing template loading functionality")
 
     # Test loading default templates
-    md_template = dataset_builder_instance._load_template('md_question.j2')
+    md_template = dataset_builder_instance._load_template("md_question.j2")
     assert md_template is not None
 
-    roleplay_template = dataset_builder_instance._load_template('roleplay_prompt.j2')
+    roleplay_template = dataset_builder_instance._load_template("roleplay_prompt.j2")
     assert roleplay_template is not None
 
     logger.success("Template loading test passed")
@@ -305,7 +315,7 @@ def test_custom_template_override(dataset_builder_instance, tmp_path):
 2. {{ answer_2 }}
 [Custom Answer]
 """
-    with open(custom_template_path, 'w', encoding='utf-8') as f:
+    with Path(custom_template_path).open("w", encoding="utf-8") as f:
         f.write(custom_template_content)
 
     # Create builder with custom template
@@ -316,7 +326,7 @@ def test_custom_template_override(dataset_builder_instance, tmp_path):
         char_name="Alice",
         situation="Test situation",
         answer_1="Answer 1",
-        answer_2="Answer 2"
+        answer_2="Answer 2",
     )
 
     assert "[Custom Situation]" in result
@@ -336,7 +346,7 @@ def test_template_rendering_with_variables(dataset_builder_instance):
         char_name="Bob",
         situation="Bob meets Alice.\nAlice: Hi there!",
         answer_1="Hello, nice to meet you!",
-        answer_2="Oh, hi."
+        answer_2="Oh, hi.",
     )
 
     assert "Bob" in result
@@ -397,7 +407,7 @@ def test_set_and_get_custom_template_from_string(dataset_builder_instance):
         char_name="Alice",
         situation="Test situation",
         answer_1="Answer 1",
-        answer_2="Answer 2"
+        answer_2="Answer 2",
     )
     assert "[Custom Situation]" in result
     assert "[Custom Question]" in result
@@ -406,7 +416,9 @@ def test_set_and_get_custom_template_from_string(dataset_builder_instance):
     logger.success("Setting and getting custom template from string test passed")
 
 
-def test_set_and_get_roleplay_template_from_string(dataset_builder_instance, model_and_tokenizer):
+def test_set_and_get_roleplay_template_from_string(
+    dataset_builder_instance, model_and_tokenizer
+):
     """Test setting and getting custom roleplay template from string."""
     logger.info("Testing setting and getting custom roleplay template from string")
 
@@ -441,12 +453,14 @@ User is {{ user_name }}.
         char_name="Bob",
         p2="Bob is friendly.",
         situation="Alice: Hello!",
-        verbose=False
+        verbose=False,
     )
     assert isinstance(result, str)
     assert len(result) > 0
 
-    logger.success("Setting and getting custom roleplay template from string test passed")
+    logger.success(
+        "Setting and getting custom roleplay template from string test passed"
+    )
 
 
 def test_template_priority(dataset_builder_instance, tmp_path):
@@ -460,7 +474,7 @@ def test_template_priority(dataset_builder_instance, tmp_path):
     # 2. File-based template
     file_template_path = tmp_path / "file_template.j2"
     file_template_content = "[File Situation]\n{{ situation }}"
-    with open(file_template_path, 'w', encoding='utf-8') as f:
+    with Path(file_template_path).open("w", encoding="utf-8") as f:
         f.write(file_template_content)
 
     builder_with_file = DatasetBuilder(caa_question_template=str(file_template_path))

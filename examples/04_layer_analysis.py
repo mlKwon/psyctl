@@ -27,7 +27,9 @@ console = Console()
 
 # Configuration
 MODEL_NAME = "google/gemma-3-270m-it"  # Small model for testing
-DATASET_PATH = Path("./results/korean_extroversion_caa/caa_dataset_20251009_193430.jsonl")
+DATASET_PATH = Path(
+    "./results/korean_extroversion_caa/caa_dataset_20251009_193430.jsonl"
+)
 OUTPUT_PATH = Path("./results/layer_analysis_example.json")
 
 # Layer patterns to analyze (supports wildcards)
@@ -50,9 +52,9 @@ if not DATASET_PATH.exists():
     console.print(f"\n[red]Error: Dataset not found at {DATASET_PATH}[/red]")
     console.print("\n[yellow]Please run the following command first:[/yellow]")
     console.print("  psyctl dataset.build.steer \\")
-    console.print(f"    --model \"{MODEL_NAME}\" \\")
-    console.print("    --personality \"Extroversion\" \\")
-    console.print(f"    --output \"{DATASET_PATH.parent}\" \\")
+    console.print(f'    --model "{MODEL_NAME}" \\')
+    console.print('    --personality "Extroversion" \\')
+    console.print(f'    --output "{DATASET_PATH.parent}" \\')
     console.print("    --num-samples 100")
     sys.exit(1)
 
@@ -75,7 +77,11 @@ try:
     # Step 3: Display results in a table
     console.print(f"\n[green]Analyzed {results['total_layers']} layers[/green]")
 
-    table = Table(title="TOP 5 Layers (Best Separation)", show_header=True, header_style="bold magenta")
+    table = Table(
+        title="TOP 5 Layers (Best Separation)",
+        show_header=True,
+        header_style="bold magenta",
+    )
     table.add_column("Rank", style="dim", width=6)
     table.add_column("Layer", style="cyan")
     table.add_column("Score", justify="right", style="green")
@@ -89,11 +95,7 @@ try:
         margin = metrics.get("margin", 0)
 
         table.add_row(
-            str(i),
-            result['layer'],
-            f"{score:.4f}",
-            f"{accuracy:.4f}",
-            f"{margin:.4f}"
+            str(i), result["layer"], f"{score:.4f}", f"{accuracy:.4f}", f"{margin:.4f}"
         )
 
     console.print("\n")
@@ -109,26 +111,30 @@ try:
     console.print("\n" + "=" * 70)
     console.print("[bold]Next Steps:[/bold]")
     console.print("=" * 70)
-    console.print("\n[yellow]1. Extract steering vector from the top-ranked layer:[/yellow]")
+    console.print(
+        "\n[yellow]1. Extract steering vector from the top-ranked layer:[/yellow]"
+    )
     console.print("   psyctl extract.steering \\")
-    console.print(f"     --model \"{MODEL_NAME}\" \\")
-    console.print(f"     --layer \"{results['top_k_layers'][0]}\" \\")
-    console.print(f"     --dataset \"{DATASET_PATH}\" \\")
-    console.print("     --output \"./steering_vector/best_layer.safetensors\"")
+    console.print(f'     --model "{MODEL_NAME}" \\')
+    console.print(f'     --layer "{results["top_k_layers"][0]}" \\')
+    console.print(f'     --dataset "{DATASET_PATH}" \\')
+    console.print('     --output "./steering_vector/best_layer.safetensors"')
 
     console.print("\n[yellow]2. Or extract from multiple top layers:[/yellow]")
     console.print("   psyctl extract.steering \\")
-    console.print(f"     --model \"{MODEL_NAME}\" \\")
+    console.print(f'     --model "{MODEL_NAME}" \\')
     for layer in results["top_k_layers"][:3]:
-        console.print(f"     --layer \"{layer}\" \\")
-    console.print(f"     --dataset \"{DATASET_PATH}\" \\")
-    console.print("     --output \"./steering_vector/multi_layer.safetensors\"")
+        console.print(f'     --layer "{layer}" \\')
+    console.print(f'     --dataset "{DATASET_PATH}" \\')
+    console.print('     --output "./steering_vector/multi_layer.safetensors"')
 
     console.print("\n[yellow]3. Apply steering to test:[/yellow]")
     console.print("   psyctl steering \\")
-    console.print(f"     --model \"{MODEL_NAME}\" \\")
-    console.print("     --steering-vector \"./steering_vector/best_layer.safetensors\" \\")
-    console.print("     --input-text \"Hello, how are you?\"")
+    console.print(f'     --model "{MODEL_NAME}" \\')
+    console.print(
+        '     --steering-vector "./steering_vector/best_layer.safetensors" \\'
+    )
+    console.print('     --input-text "Hello, how are you?"')
 
     console.print("\n" + "=" * 70 + "\n")
 
@@ -138,5 +144,6 @@ except FileNotFoundError as e:
 except Exception as e:
     console.print(f"\n[red]Error during analysis: {e}[/red]")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)

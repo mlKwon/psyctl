@@ -1,7 +1,9 @@
 """Steering vector extractor using various methods."""
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import ClassVar
 
 import torch
 from torch import nn
@@ -10,6 +12,7 @@ from transformers import AutoTokenizer
 from psyctl.core.extractors import (
     BiPOVectorExtractor,
     MeanContrastiveActivationVectorExtractor,
+    PcaCaaExtractor,
 )
 from psyctl.core.logger import get_logger
 from psyctl.core.utils import validate_tokenizer_padding
@@ -20,9 +23,10 @@ from psyctl.models.vector_store import VectorStore
 class SteeringExtractor:
     """Extract steering vectors using various methods."""
 
-    EXTRACTORS = {
+    EXTRACTORS: ClassVar[dict[str, type]] = {
         "mean_diff": MeanContrastiveActivationVectorExtractor,
         "bipo": BiPOVectorExtractor,
+        "pca_caa": PcaCaaExtractor,
     }
 
     def __init__(self):
@@ -32,18 +36,18 @@ class SteeringExtractor:
 
     def extract_steering_vector(
         self,
-        layers: List[str],
+        layers: list[str],
         output_path: Path,
-        model_name: Optional[str] = None,
-        model: Optional[nn.Module] = None,
-        tokenizer: Optional[AutoTokenizer] = None,
-        dataset_path: Optional[Union[Path, str]] = None,
-        dataset: Optional[List[dict]] = None,
-        batch_size: Optional[int] = None,
+        model_name: str | None = None,
+        model: nn.Module | None = None,
+        tokenizer: AutoTokenizer | None = None,
+        dataset_path: Path | str | None = None,
+        dataset: list[dict] | None = None,
+        batch_size: int | None = None,
         normalize: bool = False,
         method: str = "mean_diff",
         **method_params,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Extract steering vectors using various methods.
 
@@ -109,10 +113,22 @@ class SteeringExtractor:
             ...     layers=["model.layers.13.mlp.down_proj"],
             ...     output_path=Path("./out.safetensors")
             ... )
+
+            >>> # Example 5: Using PCA-enhanced CAA method
+            >>> vectors = extractor.extract_steering_vector(
+            ...     model_name="google/gemma-2-2b-it",
+            ...     layers=["model.layers.13.mlp.down_proj"],
+            ...     dataset_path=Path("./dataset/steering"),
+            ...     output_path=Path("./out.safetensors"),
+            ...     method="pca_caa",
+            ...     variance_threshold=0.95
+            ... )
         """
         # Validate model parameters
         if model is not None and model_name is not None:
-            raise ValueError("Cannot provide both 'model' and 'model_name'. Choose one.")
+            raise ValueError(
+                "Cannot provide both 'model' and 'model_name'. Choose one."
+            )
         if model is None and model_name is None:
             raise ValueError("Must provide either 'model' or 'model_name'.")
         if model is not None and tokenizer is None:
@@ -120,7 +136,9 @@ class SteeringExtractor:
 
         # Validate dataset parameters
         if dataset is not None and dataset_path is not None:
-            raise ValueError("Cannot provide both 'dataset' and 'dataset_path'. Choose one.")
+            raise ValueError(
+                "Cannot provide both 'dataset' and 'dataset_path'. Choose one."
+            )
         if dataset is None and dataset_path is None:
             raise ValueError("Must provide either 'dataset' or 'dataset_path'.")
 
@@ -130,7 +148,7 @@ class SteeringExtractor:
         else:
             # Try to get model name from config
             try:
-                model_identifier = model.config._name_or_path
+                model_identifier = model.config._name_or_path  # type: ignore[union-attr]
             except AttributeError:
                 model_identifier = "unknown"
 
@@ -145,17 +163,20 @@ class SteeringExtractor:
             if dataset_path is not None:
                 if isinstance(dataset_path, str):
                     # Check if it's a HuggingFace dataset name (contains '/')
-                    if '/' in dataset_path:
+                    if "/" in dataset_path:
                         self.logger.info(f"Using HuggingFace dataset: {dataset_path}")
                     else:
                         # It's a local path string, convert to Path
                         dataset_path = Path(dataset_path)
                         if not dataset_path.exists():
-                            raise FileNotFoundError(f"Dataset path does not exist: {dataset_path}")
-                elif isinstance(dataset_path, Path):
+                            raise FileNotFoundError(
+                                f"Dataset path does not exist: {dataset_path}"
+                            )
+                elif isinstance(dataset_path, Path) and not dataset_path.exists():
                     # Validate local path
-                    if not dataset_path.exists():
-                        raise FileNotFoundError(f"Dataset path does not exist: {dataset_path}")
+                    raise FileNotFoundError(
+                        f"Dataset path does not exist: {dataset_path}"
+                    )
 
             # Create output directory
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -164,6 +185,7 @@ class SteeringExtractor:
             # 1. Load model if not provided
             if model is None:
                 self.logger.info("Loading model...")
+                assert model_name is not None
                 model, tokenizer = self.llm_loader.load_model(model_name)
             else:
                 self.logger.info("Using pre-loaded model")
@@ -212,7 +234,7 @@ class SteeringExtractor:
                     from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 
                     loader = SteerDatasetLoader()
-                    dataset_info = loader.get_dataset_info(dataset_path)
+                    dataset_info = loader.get_dataset_info(dataset_path)  # type: ignore[arg-type]
                     metadata["dataset_samples"] = dataset_info["num_samples"]
                 except Exception as e:
                     self.logger.debug(f"Could not get dataset info: {e}")
