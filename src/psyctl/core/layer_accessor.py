@@ -1,7 +1,6 @@
 """Layer accessor for dynamic model layer access."""
 
 import re
-from typing import List, Tuple
 
 from torch import nn
 
@@ -23,7 +22,7 @@ class LayerAccessor:
         """Initialize LayerAccessor with logger."""
         self.logger = get_logger("layer_accessor")
 
-    def parse_layer_path(self, layer_str: str) -> List[str]:
+    def parse_layer_path(self, layer_str: str) -> list[str]:
         """
         Parse layer path string into components.
 
@@ -39,10 +38,10 @@ class LayerAccessor:
             ['model', 'layers', '13', 'mlp', 'down_proj']
         """
         # Replace brackets with dots: model.layers[13] → model.layers.13
-        normalized = re.sub(r'\[(\d+)\]', r'.\1', layer_str)
+        normalized = re.sub(r"\[(\d+)\]", r".\1", layer_str)
 
         # Split by dots and filter empty strings
-        components = [c for c in normalized.split('.') if c]
+        components = [c for c in normalized.split(".") if c]
 
         self.logger.debug(f"Parsed layer path '{layer_str}' → {components}")
         return components
@@ -78,7 +77,7 @@ class LayerAccessor:
                 # Check if component is a digit (array index)
                 if component.isdigit():
                     index = int(component)
-                    if not isinstance(current, (nn.ModuleList, list, tuple)):
+                    if not isinstance(current, nn.ModuleList | list | tuple):
                         raise AttributeError(
                             f"Cannot index into {type(current).__name__} "
                             f"at path '{'.'.join(path_so_far[:-1])}'"
@@ -107,7 +106,7 @@ class LayerAccessor:
             self.logger.error(f"Failed to access layer '{layer_str}': {e}")
             raise
 
-    def validate_layers(self, model: nn.Module, layer_strs: List[str]) -> bool:
+    def validate_layers(self, model: nn.Module, layer_strs: list[str]) -> bool:
         """
         Validate that all layer paths exist in the model.
 
@@ -160,26 +159,26 @@ class LayerAccessor:
         layer = self.get_layer(model, layer_str)
 
         info = {
-            'path': layer_str,
-            'type': type(layer).__name__,
-            'num_parameters': sum(p.numel() for p in layer.parameters()),
-            'trainable_parameters': sum(
+            "path": layer_str,
+            "type": type(layer).__name__,
+            "num_parameters": sum(p.numel() for p in layer.parameters()),
+            "trainable_parameters": sum(
                 p.numel() for p in layer.parameters() if p.requires_grad
             ),
         }
 
         # Add shape info for Linear layers
         if isinstance(layer, nn.Linear):
-            info['in_features'] = layer.in_features
-            info['out_features'] = layer.out_features
-            info['bias'] = layer.bias is not None
+            info["in_features"] = layer.in_features
+            info["out_features"] = layer.out_features
+            info["bias"] = layer.bias is not None
 
         self.logger.debug(f"Layer info for '{layer_str}': {info}")
         return info
 
     def expand_layer_patterns(
-        self, model: nn.Module, layer_patterns: List[str]
-    ) -> List[str]:
+        self, model: nn.Module, layer_patterns: list[str]
+    ) -> list[str]:
         """
         Expand wildcard patterns to concrete layer paths.
 
@@ -223,9 +222,9 @@ class LayerAccessor:
 
     def _has_wildcard(self, pattern: str) -> bool:
         """Check if pattern contains wildcard syntax."""
-        return bool(re.search(r'\[\*\]|\[[\d\s:]*:[\d\s:]*\]', pattern))
+        return bool(re.search(r"\[\*\]|\[[\d\s:]*:[\d\s:]*\]", pattern))
 
-    def _expand_single_pattern(self, model: nn.Module, pattern: str) -> List[str]:
+    def _expand_single_pattern(self, model: nn.Module, pattern: str) -> list[str]:
         """
         Expand a single pattern to concrete paths.
 
@@ -238,7 +237,7 @@ class LayerAccessor:
         """
         # Parse the pattern into components
         # Find all bracket expressions
-        bracket_pattern = r'\[([^\]]+)\]'
+        bracket_pattern = r"\[([^\]]+)\]"
         bracket_info = []
 
         for match in re.finditer(bracket_pattern, pattern):
@@ -256,24 +255,20 @@ class LayerAccessor:
                 before = temp_pattern[:start]
                 if before:
                     # Split by dots and add to components
-                    for part in before.split('.'):
-                        if part:
-                            components.append(part)
+                    components.extend(part for part in before.split(".") if part)
 
                 # Add the bracket content as a component
-                components.append(f'[{content}]')
+                components.append(f"[{content}]")
 
                 # Update temp_pattern to continue from after this bracket
                 temp_pattern = temp_pattern[end:]
 
             # Add any remaining parts after the last bracket
             if temp_pattern:
-                for part in temp_pattern.split('.'):
-                    if part:
-                        components.append(part)
+                components.extend(part for part in temp_pattern.split(".") if part)
         else:
             # No brackets, just split by dots
-            components = [c for c in pattern.split('.') if c]
+            components = [c for c in pattern.split(".") if c]
 
         self.logger.debug(f"Pattern components: {components}")
 
@@ -281,8 +276,11 @@ class LayerAccessor:
         return self._recursive_expand(model, components, [])
 
     def _recursive_expand(
-        self, current: nn.Module, remaining_components: List[str], path_so_far: List[str]
-    ) -> List[str]:
+        self,
+        current: nn.Module,
+        remaining_components: list[str],
+        path_so_far: list[str],
+    ) -> list[str]:
         """
         Recursively expand wildcard components.
 
@@ -302,12 +300,12 @@ class LayerAccessor:
         rest = remaining_components[1:]
 
         # Check if component is a wildcard bracket
-        if component.startswith('[') and component.endswith(']'):
+        if component.startswith("[") and component.endswith("]"):
             content = component[1:-1]
 
-            if content == '*':
+            if content == "*":
                 # Wildcard: expand to all indices
-                if not isinstance(current, (nn.ModuleList, list, tuple)):
+                if not isinstance(current, nn.ModuleList | list | tuple):
                     self.logger.error(
                         f"Cannot expand wildcard on non-indexable type: {type(current).__name__}"
                     )
@@ -315,16 +313,14 @@ class LayerAccessor:
 
                 results = []
                 for idx in range(len(current)):
-                    new_path = path_so_far + [str(idx)]
+                    new_path = [*path_so_far, str(idx)]
                     next_module = current[idx]
-                    results.extend(
-                        self._recursive_expand(next_module, rest, new_path)
-                    )
+                    results.extend(self._recursive_expand(next_module, rest, new_path))
                 return results
 
-            elif ':' in content:
+            elif ":" in content:
                 # Slice notation
-                if not isinstance(current, (nn.ModuleList, list, tuple)):
+                if not isinstance(current, nn.ModuleList | list | tuple):
                     self.logger.error(
                         f"Cannot expand slice on non-indexable type: {type(current).__name__}"
                     )
@@ -336,23 +332,21 @@ class LayerAccessor:
 
                 results = []
                 for idx in indices:
-                    new_path = path_so_far + [str(idx)]
+                    new_path = [*path_so_far, str(idx)]
                     next_module = current[idx]
-                    results.extend(
-                        self._recursive_expand(next_module, rest, new_path)
-                    )
+                    results.extend(self._recursive_expand(next_module, rest, new_path))
                 return results
 
             else:
                 # Regular index
                 idx = int(content)
-                if not isinstance(current, (nn.ModuleList, list, tuple)):
+                if not isinstance(current, nn.ModuleList | list | tuple):
                     self.logger.error(
                         f"Cannot index into non-indexable type: {type(current).__name__}"
                     )
                     return []
 
-                new_path = path_so_far + [str(idx)]
+                new_path = [*path_so_far, str(idx)]
                 next_module = current[idx]
                 return self._recursive_expand(next_module, rest, new_path)
 
@@ -364,11 +358,11 @@ class LayerAccessor:
                 )
                 return []
 
-            new_path = path_so_far + [component]
+            new_path = [*path_so_far, component]
             next_module = getattr(current, component)
             return self._recursive_expand(next_module, rest, new_path)
 
-    def _parse_slice(self, slice_str: str, max_len: int) -> Tuple[int, int, int]:
+    def _parse_slice(self, slice_str: str, max_len: int) -> tuple[int, int, int]:
         """
         Parse slice notation like "5:10", ":5", "10:", "5:10:2".
 
@@ -379,7 +373,7 @@ class LayerAccessor:
         Returns:
             Tuple of (start, stop, step) for range()
         """
-        parts = slice_str.split(':')
+        parts = slice_str.split(":")
 
         if len(parts) == 2:
             start_str, stop_str = parts
@@ -395,7 +389,7 @@ class LayerAccessor:
 
         return (start, stop, step)
 
-    def format_layer_path(self, components: List[str]) -> str:
+    def format_layer_path(self, components: list[str]) -> str:
         """
         Format list of components back to layer path string.
 
@@ -414,8 +408,8 @@ class LayerAccessor:
         for comp in components:
             if comp.isdigit():
                 # Add as bracket notation
-                result[-1] += f'[{comp}]'
+                result[-1] += f"[{comp}]"
             else:
                 result.append(comp)
 
-        return '.'.join(result)
+        return ".".join(result)

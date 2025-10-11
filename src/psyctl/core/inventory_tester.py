@@ -1,7 +1,7 @@
 """Inventory tester for measuring personality changes."""
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from psyctl.core.logger import get_logger
 
@@ -14,7 +14,7 @@ class InventoryTester:
 
     def test_inventory(
         self, model: str, steering_vector_path: Path, inventory_name: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run inventory test and return results."""
         self.logger.info(f"Running inventory test for model: {model}")
         self.logger.info(f"Steering vector path: {steering_vector_path}")

@@ -18,18 +18,19 @@ Requirements:
 - ~2GB disk space for model cache
 """
 
-import os
 import argparse
+import os
 from pathlib import Path
-from dotenv import load_dotenv
+
 import torch
+from dotenv import load_dotenv
 
 # Import PSYCTL components
 from psyctl.core.dataset_builder import DatasetBuilder
-from psyctl.core.steering_extractor import SteeringExtractor
-from psyctl.core.steering_applier import SteeringApplier
-from psyctl.models.llm_loader import LLMLoader
 from psyctl.core.logger import get_logger
+from psyctl.core.steering_applier import SteeringApplier
+from psyctl.core.steering_extractor import SteeringExtractor
+from psyctl.models.llm_loader import LLMLoader
 
 # Initialize logger
 logger = get_logger("end_to_end_simple")
@@ -54,18 +55,25 @@ RESULTS_DIR = Path("./results")
 DATASET_OUTPUT = RESULTS_DIR / "simple_example"
 STEERING_VECTOR_PATH = RESULTS_DIR / "simple_steering.safetensors"
 
+
 def main():
     """Execute the simplest end-to-end workflow."""
     parser = argparse.ArgumentParser(description="PSYCTL Simple End-to-End Example")
-    parser.add_argument("--skip-dataset", action="store_true",
-                        help="Skip dataset generation and use existing dataset")
-    parser.add_argument("--dataset-path", type=str,
-                        help="Path to existing dataset file (required with --skip-dataset)")
+    parser.add_argument(
+        "--skip-dataset",
+        action="store_true",
+        help="Skip dataset generation and use existing dataset",
+    )
+    parser.add_argument(
+        "--dataset-path",
+        type=str,
+        help="Path to existing dataset file (required with --skip-dataset)",
+    )
     args = parser.parse_args()
 
-    print("="*80)
+    print("=" * 80)
     print("PSYCTL Simple End-to-End Example")
-    print("="*80)
+    print("=" * 80)
     print("This example uses:")
     print("- Default English templates")
     print("- allenai/soda dataset")
@@ -85,19 +93,19 @@ def main():
         dataset_file = Path(args.dataset_path)
         if not dataset_file.exists():
             raise FileNotFoundError(f"Dataset file not found: {dataset_file}")
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("STEP 1: Using Existing Dataset")
-        print("="*80)
+        print("=" * 80)
         print(f"Dataset: {dataset_file}")
         print()
     else:
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("STEP 1: Generating Steering Dataset")
-        print("="*80)
+        print("=" * 80)
         print(f"Model: {DATASET_MODEL}")
         print(f"Personality: {PERSONALITY}")
-        print(f"Dataset: allenai/soda (default)")
-        print(f"Templates: Default English templates")
+        print("Dataset: allenai/soda (default)")
+        print("Templates: Default English templates")
         print(f"Samples: {SAMPLE_COUNT}")
         print()
 
@@ -105,7 +113,7 @@ def main():
         dataset_builder = DatasetBuilder(
             use_openrouter=True,
             openrouter_api_key=OPENROUTER_API_KEY,
-            openrouter_max_workers=2
+            openrouter_max_workers=2,
         )
 
         # Build steering dataset with all defaults
@@ -118,27 +126,28 @@ def main():
                 limit_samples=SAMPLE_COUNT,
                 dataset_name="allenai/soda",  # Default dataset
                 temperature=0.7,
-                max_tokens=100
+                max_tokens=100,
             )
             print(f"\n[SUCCESS] Steering dataset generated: {dataset_file}")
             logger.info(f"Steering dataset generated successfully: {dataset_file}")
 
             # Display sample data from generated dataset
-            print("\n" + "-"*80)
+            print("\n" + "-" * 80)
             print("DATASET SAMPLES (First 2 examples)")
-            print("-"*80)
+            print("-" * 80)
             import json
-            with open(dataset_file, 'r', encoding='utf-8') as f:
+
+            with Path(dataset_file).open(encoding="utf-8") as f:
                 for i, line in enumerate(f):
                     if i >= 2:  # Show only first 2 samples
                         break
                     sample = json.loads(line)
-                    print(f"\n[Sample {i+1}]")
+                    print(f"\n[Sample {i + 1}]")
                     print(f"Character: {sample['char_name']}")
                     print(f"Situation: {sample['situation'][:200]}...")
                     print(f"Positive answer: {sample['positive']}")
                     print(f"Neutral answer: {sample['neutral']}")
-            print("-"*80)
+            print("-" * 80)
 
         except Exception as e:
             logger.error(f"Failed to generate steering dataset: {e}")
@@ -147,12 +156,12 @@ def main():
     # =========================================================================
     # STEP 2: Extract Steering Vector using Mean Diff Method
     # =========================================================================
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("STEP 2: Extracting Steering Vector")
-    print("="*80)
+    print("=" * 80)
     print(f"Model: {STEERING_MODEL}")
     print(f"Dataset: {dataset_file}")
-    print(f"Method: mean_diff (Mean Difference)")
+    print("Method: mean_diff (Mean Difference)")
     print()
 
     logger.info("Initializing SteeringExtractor")
@@ -170,7 +179,7 @@ def main():
             dataset_path=dataset_file,
             output_path=STEERING_VECTOR_PATH,
             method="mean_diff",
-            normalize=True
+            normalize=True,
         )
         print(f"\n[SUCCESS] Steering vector extracted: {STEERING_VECTOR_PATH}")
         logger.info(f"Steering vector extracted successfully: {STEERING_VECTOR_PATH}")
@@ -181,11 +190,11 @@ def main():
     # =========================================================================
     # STEP 3: Apply Steering and Test
     # =========================================================================
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("STEP 3: Testing Steering")
-    print("="*80)
+    print("=" * 80)
     print(f"Model: {STEERING_MODEL}")
-    print(f"Test Input: 'Hello, how are you?'")
+    print("Test Input: 'Hello, how are you?'")
     print()
 
     logger.info("Initializing SteeringApplier")
@@ -203,20 +212,20 @@ def main():
 
         # Prepare prompt
         messages = [{"role": "user", "content": test_input}]
-        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        prompt = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
         inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
         # Generate
         with torch.no_grad():
             outputs = model.generate(
-                **inputs,
-                max_new_tokens=100,
-                temperature=0.7,
-                top_p=0.9,
-                do_sample=True
+                **inputs, max_new_tokens=100, temperature=0.7, top_p=0.9, do_sample=True
             )
 
-        response_baseline = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+        response_baseline = tokenizer.decode(
+            outputs[0][inputs.input_ids.shape[1] :], skip_special_tokens=True
+        )
         print(f"\n[BASELINE] Input: {test_input}")
         print(f"[BASELINE] Response: {response_baseline}")
 
@@ -238,7 +247,7 @@ def main():
             input_text=test_input,
             max_new_tokens=100,
             strength=1.5,
-            temperature=0.7
+            temperature=0.7,
         )
         print(f"\n[STEERED] Input: {test_input}")
         print(f"[STEERED] Response: {response_steered}")
@@ -249,17 +258,18 @@ def main():
     # =========================================================================
     # Summary
     # =========================================================================
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print(f"Dataset: {dataset_file}")
     print(f"Steering Vector: {STEERING_VECTOR_PATH}")
     print(f"\nBaseline Response: {response_baseline}")
     print(f"Steered Response (Extroversion): {response_steered}")
     print("\nSimple workflow completed successfully!")
-    print("="*80)
+    print("=" * 80)
 
     logger.info("Simple workflow completed successfully")
+
 
 if __name__ == "__main__":
     main()

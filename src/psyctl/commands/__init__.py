@@ -1,10 +1,10 @@
 """Command modules for psyctl CLI."""
 
-from . import dataset, extract, steering, benchmark
+from . import benchmark, dataset, extract, steering
 
 __all__ = [
-    "dataset",
-    "extract", 
-    "steering",
     "benchmark",
+    "dataset",
+    "extract",
+    "steering",
 ]

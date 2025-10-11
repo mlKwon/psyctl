@@ -2,8 +2,8 @@
 
 import pytest
 import torch
-from torch import nn
 from datasets import Dataset
+from torch import nn
 
 from psyctl.core.layer_analyzer import LayerAnalyzer
 
@@ -14,14 +14,12 @@ class SimpleModel(nn.Module):
     def __init__(self, num_layers=3):
         super().__init__()
         self.model = nn.Module()
-        self.model.layers = nn.ModuleList([
-            nn.Module() for _ in range(num_layers)
-        ])
-        for i, layer in enumerate(self.model.layers):
+        self.model.layers = nn.ModuleList([nn.Module() for _ in range(num_layers)])
+        for _i, layer in enumerate(self.model.layers):
             layer.mlp = nn.Linear(10, 10)
 
-        self.config = type('obj', (object,), {'_name_or_path': 'test-model'})()
-        self._device = torch.device('cpu')
+        self.config = type("obj", (object,), {"_name_or_path": "test-model"})()
+        self._device = torch.device("cpu")
 
     @property
     def device(self):
@@ -31,9 +29,11 @@ class SimpleModel(nn.Module):
     def forward(self, input_ids, attention_mask=None):
         """Dummy forward pass."""
         batch_size = input_ids.shape[0]
-        return type('obj', (object,), {
-            'logits': torch.randn(batch_size, input_ids.shape[1], 100)
-        })()
+        return type(
+            "obj",
+            (object,),
+            {"logits": torch.randn(batch_size, input_ids.shape[1], 100)},
+        )()
 
 
 class MockTokenizer:
@@ -63,10 +63,7 @@ class MockTokenizer:
             def __init__(self):
                 self.input_ids = input_ids
                 self.attention_mask = attention_mask
-                self._data = {
-                    'input_ids': input_ids,
-                    'attention_mask': attention_mask
-                }
+                self._data = {"input_ids": input_ids, "attention_mask": attention_mask}
 
             def to(self, device):
                 return self
@@ -101,7 +98,7 @@ class TestLayerAnalyzer:
         dataset_dict = {
             "situation": ["Test situation 1", "Test situation 2"],
             "positive": ["Positive response 1", "Positive response 2"],
-            "neutral": ["Neutral response 1", "Neutral response 2"]
+            "neutral": ["Neutral response 1", "Neutral response 2"],
         }
         dataset = Dataset.from_dict(dataset_dict)
 
@@ -113,7 +110,7 @@ class TestLayerAnalyzer:
             dataset=dataset,
             batch_size=2,
             method="svm",
-            top_k=1
+            top_k=1,
         )
 
         assert results is not None
@@ -127,13 +124,13 @@ class TestLayerAnalyzer:
             {
                 "situation": "Test situation 1",
                 "positive": "Positive response 1",
-                "neutral": "Neutral response 1"
+                "neutral": "Neutral response 1",
             },
             {
                 "situation": "Test situation 2",
                 "positive": "Positive response 2",
-                "neutral": "Neutral response 2"
-            }
+                "neutral": "Neutral response 2",
+            },
         ]
 
         results = self.analyzer.analyze_layers(
@@ -143,7 +140,7 @@ class TestLayerAnalyzer:
             dataset=dataset,
             batch_size=2,
             method="svm",
-            top_k=1
+            top_k=1,
         )
 
         assert results is not None
@@ -155,13 +152,13 @@ class TestLayerAnalyzer:
             {
                 "question": "Test question 1",
                 "positive": "Positive response 1",
-                "neutral": "Neutral response 1"
+                "neutral": "Neutral response 1",
             },
             {
                 "question": "Test question 2",
                 "positive": "Positive response 2",
-                "neutral": "Neutral response 2"
-            }
+                "neutral": "Neutral response 2",
+            },
         ]
 
         results = self.analyzer.analyze_layers(
@@ -171,7 +168,7 @@ class TestLayerAnalyzer:
             dataset=dataset,
             batch_size=2,
             method="svm",
-            top_k=1
+            top_k=1,
         )
 
         assert results is not None
@@ -184,7 +181,7 @@ class TestLayerAnalyzer:
             {
                 "situation": f"Test situation {i}",
                 "positive": f"Positive response {i}",
-                "neutral": f"Neutral response {i}"
+                "neutral": f"Neutral response {i}",
             }
             for i in range(5)
         ]
@@ -196,7 +193,7 @@ class TestLayerAnalyzer:
             dataset=dataset,
             batch_size=2,  # 5 items / 2 = 2 full batches + 1 partial
             method="svm",
-            top_k=1
+            top_k=1,
         )
 
         assert results is not None
@@ -204,13 +201,7 @@ class TestLayerAnalyzer:
 
     def test_wildcard_expansion(self):
         """Test that wildcard expansion works correctly."""
-        dataset = [
-            {
-                "situation": "Test",
-                "positive": "Positive",
-                "neutral": "Neutral"
-            }
-        ]
+        dataset = [{"situation": "Test", "positive": "Positive", "neutral": "Neutral"}]
 
         results = self.analyzer.analyze_layers(
             model=self.model,
@@ -219,7 +210,7 @@ class TestLayerAnalyzer:
             dataset=dataset,
             batch_size=1,
             method="svm",
-            top_k=3
+            top_k=3,
         )
 
         assert results is not None
@@ -237,14 +228,13 @@ class TestLayerAnalyzer:
                 model_name="test-model",
                 tokenizer=self.tokenizer,
                 layers=["model.layers[0].mlp"],
-                dataset=dataset
+                dataset=dataset,
             )
 
         # Should raise error when providing neither model nor model_name
         with pytest.raises(ValueError, match="Must provide either"):
             self.analyzer.analyze_layers(
-                layers=["model.layers[0].mlp"],
-                dataset=dataset
+                layers=["model.layers[0].mlp"], dataset=dataset
             )
 
         # Should raise error when providing both dataset and dataset_path
@@ -254,18 +244,12 @@ class TestLayerAnalyzer:
                 tokenizer=self.tokenizer,
                 layers=["model.layers[0].mlp"],
                 dataset=dataset,
-                dataset_path="./test"
+                dataset_path="./test",
             )
 
     def test_top_k_results(self):
         """Test that top_k correctly limits results."""
-        dataset = [
-            {
-                "situation": "Test",
-                "positive": "Positive",
-                "neutral": "Neutral"
-            }
-        ]
+        dataset = [{"situation": "Test", "positive": "Positive", "neutral": "Neutral"}]
 
         results = self.analyzer.analyze_layers(
             model=self.model,
@@ -274,7 +258,7 @@ class TestLayerAnalyzer:
             dataset=dataset,
             batch_size=1,
             method="svm",
-            top_k=2
+            top_k=2,
         )
 
         assert len(results["top_k_layers"]) == 2
@@ -282,12 +266,7 @@ class TestLayerAnalyzer:
 
     def test_empty_situation_field(self):
         """Test handling of items without situation or question field."""
-        dataset = [
-            {
-                "positive": "Positive response",
-                "neutral": "Neutral response"
-            }
-        ]
+        dataset = [{"positive": "Positive response", "neutral": "Neutral response"}]
 
         # Should use empty string for situation
         results = self.analyzer.analyze_layers(
@@ -297,7 +276,7 @@ class TestLayerAnalyzer:
             dataset=dataset,
             batch_size=1,
             method="svm",
-            top_k=1
+            top_k=1,
         )
 
         assert results is not None

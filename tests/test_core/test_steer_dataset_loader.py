@@ -1,12 +1,13 @@
 """Tests for SteerDatasetLoader."""
 
 import json
-import pytest
 from pathlib import Path
+
+import pytest
 from transformers import AutoTokenizer
 
-from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 from psyctl.core.logger import get_logger, setup_logging
+from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 
 setup_logging()
 logger = get_logger("test_steer_dataset_loader")
@@ -31,19 +32,19 @@ def v3_dataset_file(tmp_path):
             "situation": "Alice meets Bob at a party.\nBob: Hi, how are you?",
             "char_name": "Alice",
             "positive": "I'm so excited to be here! Want to dance?",
-            "neutral": "I'm fine, thanks. Just looking around."
+            "neutral": "I'm fine, thanks. Just looking around.",
         },
         {
             "situation": "Charlie is at work.\nManager: Can you help with this project?",
             "char_name": "Charlie",
             "positive": "Absolutely! I'd love to lead the team!",
-            "neutral": "Sure, I can assist if needed."
-        }
+            "neutral": "Sure, I can assist if needed.",
+        },
     ]
 
-    with open(dataset_path, 'w', encoding='utf-8') as f:
+    with Path(dataset_path).open("w", encoding="utf-8") as f:
         for sample in samples:
-            f.write(json.dumps(sample) + '\n')
+            f.write(json.dumps(sample) + "\n")
 
     return dataset_path
 
@@ -74,7 +75,9 @@ def test_create_prompts_index_format(v3_dataset_file, tokenizer):
     loader = SteerDatasetLoader()
     dataset = loader.load(v3_dataset_file)
 
-    pos_prompts, neu_prompts = loader.create_prompts(dataset, tokenizer, format_type="index")
+    pos_prompts, neu_prompts = loader.create_prompts(
+        dataset, tokenizer, format_type="index"
+    )
 
     assert len(pos_prompts) == 2
     assert len(neu_prompts) == 2
@@ -95,7 +98,9 @@ def test_create_prompts_direct_format(v3_dataset_file, tokenizer):
     loader = SteerDatasetLoader()
     dataset = loader.load(v3_dataset_file)
 
-    pos_prompts, neu_prompts = loader.create_prompts(dataset, tokenizer, format_type="direct")
+    pos_prompts, neu_prompts = loader.create_prompts(
+        dataset, tokenizer, format_type="direct"
+    )
 
     assert len(pos_prompts) == 2
     assert len(neu_prompts) == 2
@@ -171,7 +176,7 @@ def test_build_prompt_with_choices(v3_dataset_file, tokenizer):
         answer_1=sample["positive"],
         answer_2=sample["neutral"],
         selected="(1",
-        tokenizer=tokenizer
+        tokenizer=tokenizer,
     )
 
     # Should include all components
@@ -195,7 +200,7 @@ def test_build_prompt_direct(v3_dataset_file, tokenizer):
         situation=sample["situation"],
         char_name=sample["char_name"],
         answer=sample["positive"],
-        tokenizer=tokenizer
+        tokenizer=tokenizer,
     )
 
     # Should include components

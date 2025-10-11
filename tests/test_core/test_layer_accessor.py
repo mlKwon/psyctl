@@ -1,7 +1,5 @@
 """Tests for layer accessor with wildcard expansion."""
 
-import pytest
-import torch
 from torch import nn
 
 from psyctl.core.layer_accessor import LayerAccessor
@@ -13,10 +11,8 @@ class SimpleModel(nn.Module):
     def __init__(self, num_layers=5):
         super().__init__()
         self.model = nn.Module()
-        self.model.layers = nn.ModuleList([
-            nn.Module() for _ in range(num_layers)
-        ])
-        for i, layer in enumerate(self.model.layers):
+        self.model.layers = nn.ModuleList([nn.Module() for _ in range(num_layers)])
+        for _i, layer in enumerate(self.model.layers):
             layer.mlp = nn.Module()
             layer.mlp.down_proj = nn.Linear(10, 10)
             layer.mlp.up_proj = nn.Linear(10, 10)
@@ -92,10 +88,7 @@ class TestLayerAccessor:
 
     def test_multiple_patterns(self):
         """Test multiple patterns in one call."""
-        patterns = [
-            "model.layers[0].mlp.down_proj",
-            "model.layers[1:3].mlp.up_proj"
-        ]
+        patterns = ["model.layers[0].mlp.down_proj", "model.layers[1:3].mlp.up_proj"]
         expanded = self.accessor.expand_layer_patterns(self.model, patterns)
 
         assert len(expanded) == 3  # 1 + 2
@@ -137,6 +130,6 @@ class TestLayerAccessor:
 
     def test_format_layer_path(self):
         """Test formatting layer path from components."""
-        components = ['model', 'layers', '13', 'mlp', 'down_proj']
+        components = ["model", "layers", "13", "mlp", "down_proj"]
         formatted = self.accessor.format_layer_path(components)
-        assert formatted == 'model.layers[13].mlp.down_proj'
+        assert formatted == "model.layers[13].mlp.down_proj"

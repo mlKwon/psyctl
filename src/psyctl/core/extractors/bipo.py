@@ -1,8 +1,9 @@
 """Bi-directional Preference Optimization (BiPO) extractor."""
 
+from __future__ import annotations
+
 import random
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -12,10 +13,10 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from psyctl.config import INFERENCE_BATCH_SIZE
-from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 from psyctl.core.extractors.base import BaseVectorExtractor
 from psyctl.core.layer_accessor import LayerAccessor
 from psyctl.core.logger import get_logger
+from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 
 
 class BiPOVectorExtractor(BaseVectorExtractor):
@@ -53,17 +54,17 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         self,
         model: nn.Module,
         tokenizer: AutoTokenizer,
-        layers: List[str],
-        dataset_path: Optional[Union[Path, str]] = None,
-        dataset: Optional[List[dict]] = None,
-        batch_size: int = None,
+        layers: list[str],
+        dataset_path: Path | str | None = None,
+        dataset: list[dict] | None = None,
+        batch_size: int | None = None,
         normalize: bool = False,
         lr: float = 5e-4,
         beta: float = 0.1,
         epochs: int = 10,
         weight_decay: float = 0.01,
         **kwargs,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Extract steering vectors using BiPO optimization.
 
@@ -103,7 +104,9 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         """
         # Validate dataset parameters
         if dataset is not None and dataset_path is not None:
-            raise ValueError("Cannot provide both 'dataset' and 'dataset_path'. Choose one.")
+            raise ValueError(
+                "Cannot provide both 'dataset' and 'dataset_path'. Choose one."
+            )
         if dataset is None and dataset_path is None:
             raise ValueError("Must provide either 'dataset' or 'dataset_path'.")
 
@@ -126,7 +129,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         # 2. Load dataset if not provided
         if dataset is None:
             self.logger.info("Loading dataset...")
-            dataset = self.dataset_loader.load(dataset_path)
+            dataset = self.dataset_loader.load(dataset_path)  # type: ignore[arg-type]
         else:
             self.logger.info("Using pre-loaded dataset...")
 
@@ -138,9 +141,11 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         steering_vectors = {}
 
         for layer_idx, layer_str in enumerate(layers, 1):
-            self.logger.info(f"\n{'='*80}")
-            self.logger.info(f"Training steering vector for layer [{layer_idx}/{len(layers)}]: {layer_str}")
-            self.logger.info(f"{'='*80}")
+            self.logger.info(f"\n{'=' * 80}")
+            self.logger.info(
+                f"Training steering vector for layer [{layer_idx}/{len(layers)}]: {layer_str}"
+            )
+            self.logger.info(f"{'=' * 80}")
 
             layer_module = self.layer_accessor.get_layer(model, layer_str)
             steering_vec = self._train_steering_vector(
@@ -174,7 +179,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
                 f"Completed layer [{layer_idx}/{len(layers)}] '{layer_str}': "
                 f"shape={steering_vec.shape}, norm={steering_vec.norm():.4f}"
             )
-            self.logger.info(f"{'='*80}\n")
+            self.logger.info(f"{'=' * 80}\n")
 
         self.logger.info(
             f"Successfully extracted {len(steering_vectors)} steering vectors"
@@ -189,7 +194,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         layer_str: str,
         layer_idx: int,
         total_layers: int,
-        dataset: List[Dict],
+        dataset: list[dict],
         batch_size: int,
         lr: float,
         beta: float,
@@ -220,10 +225,13 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         dtype = next(model.parameters()).dtype
 
         # Get hidden size from config (support different model architectures)
-        if hasattr(model.config, 'hidden_size'):
-            hidden_size = model.config.hidden_size
-        elif hasattr(model.config, 'text_config') and hasattr(model.config.text_config, 'hidden_size'):
-            hidden_size = model.config.text_config.hidden_size
+        if hasattr(model.config, "hidden_size"):
+            hidden_size = model.config.hidden_size  # type: ignore[union-attr]
+        elif hasattr(model.config, "text_config") and hasattr(
+            model.config.text_config,  # type: ignore[union-attr]
+            "hidden_size",
+        ):
+            hidden_size = model.config.text_config.hidden_size  # type: ignore[union-attr]
         else:
             raise AttributeError(
                 f"Cannot determine hidden_size from {type(model.config).__name__}. "
@@ -231,15 +239,22 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             )
 
         # Log GPU information
-        if device.type == 'cuda':
+        if device.type == "cuda":
             gpu_name = torch.cuda.get_device_name(device)
-            gpu_memory = torch.cuda.get_device_properties(device).total_memory / (1024**3)
+            gpu_memory = torch.cuda.get_device_properties(device).total_memory / (
+                1024**3
+            )
             self.logger.info(f"Using GPU: {gpu_name} ({gpu_memory:.2f} GB)")
             self.logger.info(f"CUDA device: {device}")
         else:
             self.logger.warning(f"Using CPU: {device} (GPU acceleration not available)")
 
-        v = torch.zeros(hidden_size, requires_grad=True, device=device, dtype=dtype)
+        v = torch.zeros(  # type: ignore[arg-type]
+            (int(hidden_size),),  # type: ignore[arg-type]
+            requires_grad=True,
+            device=device,
+            dtype=dtype,  # type: ignore[arg-type]
+        )  # type: ignore[arg-type]
         optimizer = AdamW([v], lr=lr, weight_decay=weight_decay)
 
         # Prepare dataset
@@ -252,7 +267,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             num_batches = 0
 
             # Create a shortened layer name for display (take last part)
-            layer_display = layer_str.split('.')[-1] if '.' in layer_str else layer_str
+            layer_display = layer_str.split(".")[-1] if "." in layer_str else layer_str
 
             progress_bar = tqdm(
                 range(0, len(dataset_samples), batch_size),
@@ -278,18 +293,16 @@ class BiPOVectorExtractor(BaseVectorExtractor):
                 epoch_loss += loss.item()
                 num_batches += 1
 
-                progress_bar.set_postfix(
-                    {
-                        "loss": f"{loss.item():.4f}",
-                        "v_norm": f"{v.norm().item():.4f}",
-                    }
-                )
+                progress_bar.set_postfix({
+                    "loss": f"{loss.item():.4f}",
+                    "v_norm": f"{v.norm().item():.4f}",
+                })
 
             avg_loss = epoch_loss / num_batches
 
             # Log GPU memory usage if using CUDA
             gpu_mem_info = ""
-            if device.type == 'cuda':
+            if device.type == "cuda":
                 allocated = torch.cuda.memory_allocated(device) / (1024**3)
                 reserved = torch.cuda.memory_reserved(device) / (1024**3)
                 gpu_mem_info = f", GPU_mem: {allocated:.2f}/{reserved:.2f}GB"
@@ -302,8 +315,8 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         return v.detach().clone()
 
     def _prepare_dataset(
-        self, dataset: List[Dict], tokenizer: AutoTokenizer
-    ) -> List[tuple]:
+        self, dataset: list[dict], tokenizer: AutoTokenizer
+    ) -> list[tuple]:
         """
         Prepare dataset samples for BiPO training.
 
@@ -326,7 +339,9 @@ class BiPOVectorExtractor(BaseVectorExtractor):
 
             samples.append((situation, char_name, positive, neutral))
 
-        self.logger.info(f"Prepared {len(samples)} training samples using full answer texts")
+        self.logger.info(
+            f"Prepared {len(samples)} training samples using full answer texts"
+        )
 
         return samples
 
@@ -335,7 +350,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         model: nn.Module,
         tokenizer: AutoTokenizer,
         layer_module: nn.Module,
-        batch: List[tuple],
+        batch: list[tuple],
         v: torch.Tensor,
         beta: float,
     ) -> torch.Tensor:
@@ -366,22 +381,42 @@ class BiPOVectorExtractor(BaseVectorExtractor):
 
             # Original log probabilities
             log_prob_pos_orig = self._get_response_logprob(
-                model, tokenizer, situation, char_name, pos_resp_text,
-                layer_module, None
+                model,
+                tokenizer,
+                situation,
+                char_name,
+                pos_resp_text,
+                layer_module,
+                None,
             )
             log_prob_neg_orig = self._get_response_logprob(
-                model, tokenizer, situation, char_name, neg_resp_text,
-                layer_module, None
+                model,
+                tokenizer,
+                situation,
+                char_name,
+                neg_resp_text,
+                layer_module,
+                None,
             )
 
             # Steered log probabilities
             log_prob_pos_steered = self._get_response_logprob(
-                model, tokenizer, situation, char_name, pos_resp_text,
-                layer_module, d * v
+                model,
+                tokenizer,
+                situation,
+                char_name,
+                pos_resp_text,
+                layer_module,
+                d * v,
             )
             log_prob_neg_steered = self._get_response_logprob(
-                model, tokenizer, situation, char_name, neg_resp_text,
-                layer_module, d * v
+                model,
+                tokenizer,
+                situation,
+                char_name,
+                neg_resp_text,
+                layer_module,
+                d * v,
             )
 
             # BiPO objective
@@ -391,11 +426,9 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             logits = d * beta * (ratio_pos - ratio_neg)
             loss = -torch.log(torch.sigmoid(logits))
 
-            if total_loss is None:
-                total_loss = loss
-            else:
-                total_loss = total_loss + loss
+            total_loss = loss if total_loss is None else total_loss + loss
 
+        assert total_loss is not None
         return total_loss / len(batch)
 
     def _get_response_logprob(
@@ -406,7 +439,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         char_name: str,
         response: str,
         layer_module: nn.Module,
-        steering: torch.Tensor = None,
+        steering: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """
         Calculate log probability of response tokens.
@@ -432,13 +465,13 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         question_text = self._format_with_chat_template(tokenizer, question_text)
         full_text = question_text + response
 
-        tokens = tokenizer(
+        tokens = tokenizer(  # type: ignore[call-arg]
             full_text, return_tensors="pt", max_length=512, truncation=True
         )
 
         # Calculate question length to identify response tokens
         # Use same tokenization method as full_text for consistency
-        question_tokens = tokenizer(
+        question_tokens = tokenizer(  # type: ignore[call-arg]
             question_text, return_tensors="pt", max_length=512, truncation=True
         )
         question_len = question_tokens.input_ids.size(1)
@@ -448,17 +481,14 @@ class BiPOVectorExtractor(BaseVectorExtractor):
         if steering is not None:
 
             def steering_hook(module, input, output):
-                if isinstance(output, tuple):
-                    hidden_states = output[0]
-                else:
-                    hidden_states = output
+                hidden_states = output[0] if isinstance(output, tuple) else output
 
                 steered_states = hidden_states + steering.unsqueeze(0).unsqueeze(0).to(
                     hidden_states.dtype
                 )
 
                 if isinstance(output, tuple):
-                    return (steered_states,) + output[1:]
+                    return (steered_states, *output[1:])
                 else:
                     return steered_states
 
@@ -498,9 +528,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             if hook_handle:
                 hook_handle.remove()
 
-    def _format_with_chat_template(
-        self, tokenizer: AutoTokenizer, text: str
-    ) -> str:
+    def _format_with_chat_template(self, tokenizer: AutoTokenizer, text: str) -> str:
         """
         Format text using model's chat template if available.
 
@@ -512,10 +540,10 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             Formatted text (with chat template if available, otherwise original)
         """
         # Try to use chat template if available
-        if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
+        if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:  # type: ignore[union-attr]
             try:
                 messages = [{"role": "user", "content": text}]
-                formatted = tokenizer.apply_chat_template(
+                formatted = tokenizer.apply_chat_template(  # type: ignore[call-arg]
                     messages, tokenize=False, add_generation_prompt=True
                 )
                 self.logger.debug("Applied chat template for prompt formatting")

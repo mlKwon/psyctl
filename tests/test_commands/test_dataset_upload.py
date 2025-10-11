@@ -1,8 +1,10 @@
 """Unit tests for dataset upload functionality."""
-import pytest
+
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, mock_open
+from unittest.mock import MagicMock, Mock, mock_open, patch
+
 import click
+import pytest
 
 from psyctl.core.dataset_builder import DatasetBuilder
 
@@ -41,7 +43,7 @@ class TestDatasetCard:
             personality="Extroversion",
             model="google/gemma-3-27b-it",
             num_samples=1000,
-            timestamp="2025-01-07T14:30:00"
+            timestamp="2025-01-07T14:30:00",
         )
 
         # Check PSYCTL branding
@@ -60,7 +62,7 @@ class TestDatasetCard:
             personality="Machiavellianism",
             model="test-model",
             num_samples=500,
-            timestamp="2025-01-07T14:30:00"
+            timestamp="2025-01-07T14:30:00",
         )
 
         assert "machiavellianism" in card.lower()
@@ -70,10 +72,16 @@ class TestDatasetCard:
 class TestUploadToHub:
     """Test upload to HuggingFace Hub."""
 
-    @patch('psyctl.core.dataset_builder.Dataset')
-    @patch('psyctl.core.dataset_builder.HfApi')
-    @patch('builtins.open', new_callable=mock_open, read_data='{"question": "test", "positive": "(1", "neutral": "(2"}\n')
-    def test_upload_to_hub_success(self, mock_file, mock_hf_api, mock_dataset, tmp_path):
+    @patch("psyctl.core.dataset_builder.Dataset")
+    @patch("psyctl.core.dataset_builder.HfApi")
+    @patch(
+        "builtins.open",
+        new_callable=mock_open,
+        read_data='{"question": "test", "positive": "(1", "neutral": "(2"}\n',
+    )
+    def test_upload_to_hub_success(
+        self, mock_file, mock_hf_api, mock_dataset, tmp_path
+    ):
         """Test successful upload to HuggingFace Hub."""
         # Setup mocks
         mock_ds_instance = MagicMock()
@@ -86,13 +94,15 @@ class TestUploadToHub:
 
         # Create test JSONL file
         test_file = tmp_path / "test_dataset.jsonl"
-        test_file.write_text('{"question": "test", "positive": "(1", "neutral": "(2"}\n')
+        test_file.write_text(
+            '{"question": "test", "positive": "(1", "neutral": "(2"}\n'
+        )
 
         repo_url = builder.upload_to_hub(
             jsonl_file=test_file,
             repo_id="test-user/test-repo",
             private=False,
-            token="hf_test_token"
+            token="hf_test_token",
         )
 
         assert repo_url == "https://huggingface.co/datasets/test-user/test-repo"
@@ -109,7 +119,7 @@ class TestUploadToHub:
             builder.upload_to_hub(
                 jsonl_file=test_file,
                 repo_id="invalid-repo-id",  # Missing username/
-                token="hf_test"
+                token="hf_test",
             )
 
         assert "Invalid repo_id format" in str(exc_info.value)
@@ -123,11 +133,11 @@ class TestUploadToHub:
             builder.upload_to_hub(
                 jsonl_file=Path("/non/existent/file.jsonl"),
                 repo_id="test-user/test-repo",
-                token="hf_test"
+                token="hf_test",
             )
 
-    @patch('psyctl.core.dataset_builder.Dataset')
-    @patch('psyctl.core.dataset_builder.HfApi')
+    @patch("psyctl.core.dataset_builder.Dataset")
+    @patch("psyctl.core.dataset_builder.HfApi")
     def test_upload_creates_readme(self, mock_hf_api, mock_dataset, tmp_path):
         """Test that upload creates README.md with dataset card."""
         # Setup mocks
@@ -141,13 +151,15 @@ class TestUploadToHub:
 
         # Create test JSONL file
         test_file = tmp_path / "test_dataset.jsonl"
-        test_file.write_text('{"question": "test", "positive": "(1", "neutral": "(2"}\n')
+        test_file.write_text(
+            '{"question": "test", "positive": "(1", "neutral": "(2"}\n'
+        )
 
         builder.upload_to_hub(
             jsonl_file=test_file,
             repo_id="test-user/test-repo",
             private=False,
-            token="hf_test_token"
+            token="hf_test_token",
         )
 
         # Check README was created
@@ -163,17 +175,22 @@ class TestUploadToHub:
 class TestUploadCLI:
     """Test dataset.upload CLI command."""
 
-    @patch('psyctl.commands.dataset.DatasetBuilder')
-    @patch('psyctl.commands.dataset.validate_hf_token')
-    def test_upload_cli_success(self, mock_validate_token, mock_builder_class, tmp_path):
+    @patch("psyctl.commands.dataset.DatasetBuilder")
+    @patch("psyctl.commands.dataset.validate_hf_token")
+    def test_upload_cli_success(
+        self, mock_validate_token, mock_builder_class, tmp_path
+    ):
         """Test successful CLI upload."""
         from click.testing import CliRunner
+
         from psyctl.commands.dataset import upload
 
         # Setup mocks
         mock_validate_token.return_value = "hf_test_token"
         mock_builder = MagicMock()
-        mock_builder.upload_to_hub.return_value = "https://huggingface.co/datasets/test-user/test-repo"
+        mock_builder.upload_to_hub.return_value = (
+            "https://huggingface.co/datasets/test-user/test-repo"
+        )
         mock_builder_class.return_value = mock_builder
 
         # Create test file
@@ -181,29 +198,29 @@ class TestUploadCLI:
         test_file.write_text('{"question": "test"}\n')
 
         runner = CliRunner()
-        result = runner.invoke(upload, [
-            '--dataset-file', str(test_file),
-            '--repo-id', 'test-user/test-repo'
-        ])
+        result = runner.invoke(
+            upload,
+            ["--dataset-file", str(test_file), "--repo-id", "test-user/test-repo"],
+        )
 
         assert result.exit_code == 0
         assert "Successfully uploaded" in result.output
         mock_builder.upload_to_hub.assert_called_once()
 
-    @patch('psyctl.commands.dataset.validate_hf_token')
+    @patch("psyctl.commands.dataset.validate_hf_token")
     def test_upload_cli_missing_token(self, mock_validate_token):
         """Test CLI upload with missing HF_TOKEN."""
         from click.testing import CliRunner
+
         from psyctl.commands.dataset import upload
 
         # Mock token validation to raise exception
         mock_validate_token.side_effect = click.ClickException("HF_TOKEN not found")
 
         runner = CliRunner()
-        result = runner.invoke(upload, [
-            '--dataset-file', 'test.jsonl',
-            '--repo-id', 'test-user/test-repo'
-        ])
+        result = runner.invoke(
+            upload, ["--dataset-file", "test.jsonl", "--repo-id", "test-user/test-repo"]
+        )
 
         assert result.exit_code != 0
         assert "HF_TOKEN" in result.output

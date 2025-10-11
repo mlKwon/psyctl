@@ -22,6 +22,7 @@ Disadvantages:
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 from psyctl.core.dataset_builder import DatasetBuilder
@@ -44,20 +45,21 @@ SAMPLE_COUNT = 20  # More samples for better steering quality
 RESULTS_DIR = Path("./results")
 OUTPUT_DIR = RESULTS_DIR / "dataset_local"
 
+
 def main():
     """Generate steering dataset using local model."""
 
-    print("="*80)
+    print("=" * 80)
     print("Steering Dataset Generation: Local Model")
-    print("="*80)
+    print("=" * 80)
     print(f"Model: {LOCAL_MODEL} (local)")
     print(f"Personality: {PERSONALITY}")
     print(f"Samples: {SAMPLE_COUNT}")
-    print(f"Dataset: allenai/soda")
+    print("Dataset: allenai/soda")
     print()
     print("NOTE: This will download the model if not cached (~540MB)")
     print("      and requires GPU for reasonable speed.")
-    print("="*80)
+    print("=" * 80)
     print()
 
     # Ensure output directory exists
@@ -86,42 +88,44 @@ def main():
             limit_samples=SAMPLE_COUNT,
             dataset_name="allenai/soda",
             temperature=0.7,
-            max_tokens=100
+            max_tokens=100,
         )
 
         print(f"\n[SUCCESS] Dataset generated: {dataset_file}")
         logger.info(f"Dataset generated successfully: {dataset_file}")
 
         # Display samples
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("DATASET SAMPLES (First 3 examples)")
-        print("-"*80)
+        print("-" * 80)
         import json
-        with open(dataset_file, 'r', encoding='utf-8') as f:
+
+        with Path(dataset_file).open(encoding="utf-8") as f:
             for i, line in enumerate(f):
                 if i >= 3:
                     break
                 sample = json.loads(line)
-                print(f"\n[Sample {i+1}]")
+                print(f"\n[Sample {i + 1}]")
                 print(f"Character: {sample['char_name']}")
                 # Show more of the situation for local generation
-                situation_preview = sample['situation'][:300]
-                if len(sample['situation']) > 300:
+                situation_preview = sample["situation"][:300]
+                if len(sample["situation"]) > 300:
                     situation_preview += "..."
                 print(f"Situation:\n{situation_preview}")
                 print(f"Positive: {sample['positive']}")
                 print(f"Neutral: {sample['neutral']}")
-        print("-"*80)
+        print("-" * 80)
 
         # Summary statistics
-        total_lines = sum(1 for _ in open(dataset_file, 'r', encoding='utf-8'))
+        with Path(dataset_file).open(encoding="utf-8") as f:
+            total_lines = sum(1 for _ in f)
         file_size = dataset_file.stat().st_size / 1024  # KB
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("GENERATION SUMMARY")
-        print("="*80)
+        print("=" * 80)
         print(f"Model: {LOCAL_MODEL}")
-        print(f"Method: Local GPU inference")
+        print("Method: Local GPU inference")
         print(f"Total samples: {total_lines}")
         print(f"File size: {file_size:.2f} KB")
         print(f"Output: {dataset_file}")
@@ -129,7 +133,7 @@ def main():
         print("Next steps:")
         print("1. Extract steering vector using this dataset")
         print("2. Apply steering to see personality changes")
-        print("="*80)
+        print("=" * 80)
 
     except Exception as e:
         logger.error(f"Failed to generate dataset: {e}")
@@ -139,6 +143,7 @@ def main():
         print("- Try a smaller sample count (e.g., --limit-samples 10)")
         print("- Ensure sufficient GPU VRAM (recommended: 8GB+)")
         raise
+
 
 if __name__ == "__main__":
     main()

@@ -28,7 +28,7 @@ def inventory(model: str, steering_vector: str, inventory: str):
     logger.info(f"Steering vector: {steering_vector}")
     logger.info(f"Inventory: {inventory}")
 
-    console.print(f"[blue]Running inventory test...[/blue]")
+    console.print("[blue]Running inventory test...[/blue]")
     console.print(f"Model: {model}")
     console.print(f"Steering vector: {steering_vector}")
     console.print(f"Inventory: {inventory}")
@@ -38,7 +38,7 @@ def inventory(model: str, steering_vector: str, inventory: str):
         results = tester.test_inventory(model, Path(steering_vector), inventory)
 
         logger.success("Inventory test completed")
-        console.print(f"[green]Test results:[/green]")
+        console.print("[green]Test results:[/green]")
         console.print(results)
     except Exception as e:
         logger.error(f"Failed to run inventory test: {e}")

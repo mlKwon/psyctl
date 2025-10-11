@@ -20,11 +20,13 @@ Example Usage:
     )
 """
 
+from __future__ import annotations
+
 import html
 import json
 import time
-from typing import Dict, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import requests
 
 from psyctl.core.logger import get_logger
@@ -71,10 +73,10 @@ class OpenRouterClient:
         model: str = "qwen/qwen3-next-80b-a3b-instruct",
         temperature: float = 0,
         max_tokens: int = 100,
-        system_prompt: Optional[str] = None,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None,
-    ) -> Tuple[str, str]:
+        system_prompt: str | None = None,
+        top_k: int | None = None,
+        top_p: float | None = None,
+    ) -> tuple[str, str]:
         """
         Generate text response from OpenRouter API.
 
@@ -83,9 +85,9 @@ class OpenRouterClient:
             model (str): Model identifier on OpenRouter
             temperature (float): Sampling temperature (0.0-2.0, default: 0)
             max_tokens (int): Maximum tokens to generate
-            system_prompt (Optional[str]): System prompt for context
-            top_k (Optional[int]): Top-k sampling parameter
-            top_p (Optional[float]): Top-p (nucleus) sampling parameter
+            system_prompt (str | None): System prompt for context
+            top_k (int | None): Top-k sampling parameter
+            top_p (float | None): Top-p (nucleus) sampling parameter
 
         Returns:
             Tuple[str, str]: (generation_id, generated_text)
@@ -113,8 +115,12 @@ class OpenRouterClient:
             request_body["top_p"] = top_p
 
         self.logger.debug(f"OpenRouter request - Model: {model}")
-        self.logger.debug(f"OpenRouter request - Messages: {json.dumps(messages, ensure_ascii=False)[:500]}...")
-        self.logger.debug(f"OpenRouter request - Temperature: {temperature}, Max tokens: {max_tokens}")
+        self.logger.debug(
+            f"OpenRouter request - Messages: {json.dumps(messages, ensure_ascii=False)[:500]}..."
+        )
+        self.logger.debug(
+            f"OpenRouter request - Temperature: {temperature}, Max tokens: {max_tokens}"
+        )
         if top_k is not None:
             self.logger.debug(f"OpenRouter request - Top K: {top_k}")
         if top_p is not None:
@@ -139,7 +145,9 @@ class OpenRouterClient:
                 raise Exception(error_msg)
 
             result = response.json()
-            self.logger.debug(f"OpenRouter response JSON: {json.dumps(result, ensure_ascii=False)[:1000]}...")
+            self.logger.debug(
+                f"OpenRouter response JSON: {json.dumps(result, ensure_ascii=False)[:1000]}..."
+            )
 
             generation_id = result["id"]
             generated_text = result["choices"][0]["message"]["content"]
@@ -148,41 +156,47 @@ class OpenRouterClient:
 
             # Log original response for debugging
             if "&#" in generated_text:
-                self.logger.debug(f"HTML entities detected in response: {generated_text[:100]}...")
+                self.logger.debug(
+                    f"HTML entities detected in response: {generated_text[:100]}..."
+                )
 
             # Decode HTML entities if present
             generated_text = html.unescape(generated_text)
 
             # Log after unescape
             if "&#" in generated_text:
-                self.logger.warning(f"HTML entities still present after unescape: {generated_text[:100]}...")
+                self.logger.warning(
+                    f"HTML entities still present after unescape: {generated_text[:100]}..."
+                )
 
             self.total_requests += 1
-            self.logger.debug(f"Generated response (ID: {generation_id}): {generated_text}")
+            self.logger.debug(
+                f"Generated response (ID: {generation_id}): {generated_text}"
+            )
 
             return generation_id, generated_text
 
         except requests.exceptions.Timeout:
             self.logger.error("Request timeout")
-            raise Exception("OpenRouter API request timeout")
+            raise Exception("OpenRouter API request timeout") from None
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Request failed: {e}")
-            raise Exception(f"OpenRouter API request failed: {e}")
+            raise Exception(f"OpenRouter API request failed: {e}") from e
         except KeyError as e:
             self.logger.error(f"Unexpected response format: {e}")
-            raise Exception(f"Unexpected OpenRouter API response: {e}")
+            raise Exception(f"Unexpected OpenRouter API response: {e}") from e
 
     def generate_batch(
         self,
-        prompts: List[str],
+        prompts: list[str],
         model: str = "qwen/qwen3-next-80b-a3b-instruct",
         temperature: float = 0,
         max_tokens: int = 100,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         max_workers: int = 1,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None,
-    ) -> List[Tuple[str, str]]:
+        top_k: int | None = None,
+        top_p: float | None = None,
+    ) -> list[tuple[str, str]]:
         """
         Generate responses for multiple prompts with optional parallel processing.
 
@@ -191,10 +205,10 @@ class OpenRouterClient:
             model (str): Model identifier on OpenRouter
             temperature (float): Sampling temperature
             max_tokens (int): Maximum tokens per generation
-            system_prompt (Optional[str]): System prompt for all requests
+            system_prompt (str | None): System prompt for all requests
             max_workers (int): Number of parallel workers (1 = sequential)
-            top_k (Optional[int]): Top-k sampling parameter
-            top_p (Optional[float]): Top-p (nucleus) sampling parameter
+            top_k (int | None): Top-k sampling parameter
+            top_p (float | None): Top-p (nucleus) sampling parameter
 
         Returns:
             List[Tuple[str, str]]: List of (generation_id, generated_text) tuples
@@ -207,19 +221,26 @@ class OpenRouterClient:
         else:
             # Parallel processing
             return self._generate_batch_parallel(
-                prompts, model, temperature, max_tokens, system_prompt, max_workers, top_k, top_p
+                prompts,
+                model,
+                temperature,
+                max_tokens,
+                system_prompt,
+                max_workers,
+                top_k,
+                top_p,
             )
 
     def _generate_batch_sequential(
         self,
-        prompts: List[str],
+        prompts: list[str],
         model: str,
         temperature: float,
         max_tokens: int,
-        system_prompt: Optional[str],
-        top_k: Optional[int],
-        top_p: Optional[float],
-    ) -> List[Tuple[str, str]]:
+        system_prompt: str | None,
+        top_k: int | None,
+        top_p: float | None,
+    ) -> list[tuple[str, str]]:
         """Sequential batch generation."""
         results = []
 
@@ -248,17 +269,19 @@ class OpenRouterClient:
 
     def _generate_batch_parallel(
         self,
-        prompts: List[str],
+        prompts: list[str],
         model: str,
         temperature: float,
         max_tokens: int,
-        system_prompt: Optional[str],
+        system_prompt: str | None,
         max_workers: int,
-        top_k: Optional[int],
-        top_p: Optional[float],
-    ) -> List[Tuple[str, str]]:
+        top_k: int | None,
+        top_p: float | None,
+    ) -> list[tuple[str, str]]:
         """Parallel batch generation using ThreadPoolExecutor."""
-        results = [None] * len(prompts)  # Pre-allocate results list
+        results: list[tuple[str, str] | None] = [None] * len(
+            prompts
+        )  # Pre-allocate results list
 
         def generate_single(index: int, prompt: str):
             try:
@@ -286,9 +309,9 @@ class OpenRouterClient:
                 index, result = future.result()
                 results[index] = result
 
-        return results
+        return results  # type: ignore[return-value]
 
-    def get_generation_cost(self, generation_id: str) -> Optional[float]:
+    def get_generation_cost(self, generation_id: str) -> float | None:
         """
         Get the cost of a specific generation.
 
@@ -296,7 +319,7 @@ class OpenRouterClient:
             generation_id (str): Generation ID from API response
 
         Returns:
-            Optional[float]: Cost in USD, or None if retrieval fails
+            float | None: Cost in USD, or None if retrieval fails
         """
         try:
             time.sleep(1.0)  # Rate limiting
@@ -342,7 +365,8 @@ class OpenRouterClient:
 # Example usage
 if __name__ == "__main__":
     import os
-    from dotenv import load_dotenv
+
+    from dotenv import load_dotenv  # type: ignore[import-not-found]
 
     load_dotenv(override=True)
 
@@ -369,7 +393,7 @@ if __name__ == "__main__":
         "What day comes after Monday?",
     ]
     results = client.generate_batch(prompts)
-    for i, (gen_id, text) in enumerate(results):
+    for i, (_gen_id, text) in enumerate(results):
         print(f"Prompt {i}: {text}")
 
     print(f"\nTotal requests: {client.get_total_requests()}")

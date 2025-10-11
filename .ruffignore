@@ -1,0 +1,4 @@
+# Ruff ignore patterns
+
+# Jupyter notebooks
+*.ipynb

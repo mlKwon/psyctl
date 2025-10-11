@@ -41,7 +41,7 @@ class TestActivationHookManager:
         layers = {
             "layer_1": nn.Linear(10, 20),
             "layer_2": nn.Linear(20, 30),
-            "layer_3": nn.Linear(30, 40)
+            "layer_3": nn.Linear(30, 40),
         }
         hook_manager.register_hooks(layers)
 
@@ -95,6 +95,7 @@ class TestActivationHookManager:
 
     def test_handle_tuple_output(self, hook_manager):
         """Test handling layers that return tuples."""
+
         # Create a layer that returns tuple (common in transformer models)
         class TupleOutputLayer(nn.Module):
             def __init__(self):
@@ -143,10 +144,7 @@ class TestActivationHookManager:
 
     def test_remove_all_hooks(self, hook_manager):
         """Test removing all hooks."""
-        layers = {
-            "layer_1": nn.Linear(10, 20),
-            "layer_2": nn.Linear(20, 30)
-        }
+        layers = {"layer_1": nn.Linear(10, 20), "layer_2": nn.Linear(20, 30)}
         hook_manager.register_hooks(layers)
 
         # Remove hooks
@@ -207,13 +205,13 @@ class TestActivationHookManager:
         with torch.no_grad():
             # First sample: all ones
             input_tensor1 = torch.ones(1, 5, 10)
-            output1 = mock_layer(input_tensor1)
+            _ = mock_layer(input_tensor1)
 
             # Second sample: all twos
             input_tensor2 = torch.ones(1, 5, 10) * 2
-            output2 = mock_layer(input_tensor2)
+            _ = mock_layer(input_tensor2)
 
-        mean_acts = hook_manager.get_mean_activations()
+        _ = hook_manager.get_mean_activations()
 
         # Mean should be close to average of the two outputs
         assert hook_manager.activations["test_layer"]["count"] == 2
@@ -250,7 +248,7 @@ class TestActivationHookManager:
         layers = {
             "layer_small": nn.Linear(10, 20),
             "layer_medium": nn.Linear(10, 50),
-            "layer_large": nn.Linear(10, 100)
+            "layer_large": nn.Linear(10, 100),
         }
         hook_manager.register_hooks(layers)
 

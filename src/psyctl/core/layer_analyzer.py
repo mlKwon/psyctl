@@ -1,18 +1,20 @@
 """Layer analyzer for finding optimal steering target layers."""
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, ClassVar
 
 import torch
 from torch import nn
 from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
-from psyctl.core.analyzers import SVMAnalyzer
-from psyctl.core.steer_dataset_loader import SteerDatasetLoader
+from psyctl.core.analyzers import ConsensusAnalyzer, SVMAnalyzer
 from psyctl.core.hook_manager import ActivationHookManager
 from psyctl.core.layer_accessor import LayerAccessor
 from psyctl.core.logger import get_logger
+from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 from psyctl.core.utils import validate_tokenizer_padding
 from psyctl.models.llm_loader import LLMLoader
 
@@ -20,8 +22,9 @@ from psyctl.models.llm_loader import LLMLoader
 class LayerAnalyzer:
     """Analyze layers to find optimal steering target layers."""
 
-    ANALYZERS = {
+    ANALYZERS: ClassVar[dict[str, type]] = {
         "svm": SVMAnalyzer,
+        "consensus": ConsensusAnalyzer,
     }
 
     def __init__(self):
@@ -33,18 +36,18 @@ class LayerAnalyzer:
 
     def analyze_layers(
         self,
-        layers: List[str],
-        output_path: Optional[Path] = None,
-        model_name: Optional[str] = None,
-        model: Optional[nn.Module] = None,
-        tokenizer: Optional[AutoTokenizer] = None,
-        dataset_path: Optional[Union[Path, str]] = None,
-        dataset: Optional[List[dict]] = None,
-        batch_size: Optional[int] = None,
+        layers: list[str],
+        output_path: Path | None = None,
+        model_name: str | None = None,
+        model: nn.Module | None = None,
+        tokenizer: AutoTokenizer | None = None,
+        dataset_path: Path | str | None = None,
+        dataset: list[dict] | None = None,
+        batch_size: int | None = None,
         method: str = "svm",
         top_k: int = 5,
         **method_params,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze layers to find optimal steering target layers.
 
@@ -57,7 +60,7 @@ class LayerAnalyzer:
             dataset_path: Dataset path (optional if dataset provided)
             dataset: Pre-loaded dataset (optional if dataset_path provided)
             batch_size: Batch size for inference
-            method: Analysis method name (default: "svm")
+            method: Analysis method name ("svm" or "consensus", default: "svm")
             top_k: Number of top layers to report
             **method_params: Method-specific parameters
 
@@ -66,12 +69,22 @@ class LayerAnalyzer:
 
         Example:
             >>> analyzer = LayerAnalyzer()
+            >>> # Using SVM analyzer
             >>> results = analyzer.analyze_layers(
             ...     layers=["model.layers[*].mlp"],
             ...     output_path=Path("./results/analysis.json"),
             ...     model_name="google/gemma-3-270m-it",
             ...     dataset_path=Path("./dataset/caa"),
             ...     method="svm",
+            ...     top_k=5
+            ... )
+            >>> # Using Consensus analyzer (more robust)
+            >>> results = analyzer.analyze_layers(
+            ...     layers=["model.layers[*].mlp.down_proj"],
+            ...     output_path=Path("./results/analysis.json"),
+            ...     model_name="google/gemma-3-270m-it",
+            ...     dataset_path=Path("./dataset/caa"),
+            ...     method="consensus",
             ...     top_k=5
             ... )
         """
@@ -92,7 +105,7 @@ class LayerAnalyzer:
             model_identifier = model_name
         else:
             try:
-                model_identifier = model.config._name_or_path
+                model_identifier = model.config._name_or_path  # type: ignore[union-attr]
             except AttributeError:
                 model_identifier = "unknown"
 
@@ -102,9 +115,12 @@ class LayerAnalyzer:
         # Load model if needed
         if model is None:
             self.logger.info("Loading model...")
+            assert model_name is not None
             model, tokenizer = self.llm_loader.load_model(model_name)
         else:
             self.logger.info("Using pre-loaded model")
+        assert model is not None
+        assert tokenizer is not None
 
         # Validate tokenizer
         validate_tokenizer_padding(tokenizer)
@@ -117,6 +133,7 @@ class LayerAnalyzer:
         # Load dataset if needed
         if dataset is None:
             self.logger.info(f"Loading dataset from {dataset_path}...")
+            assert dataset_path is not None
             dataset = self.dataset_loader.load(dataset_path)
         else:
             self.logger.info("Using pre-loaded dataset")
@@ -128,7 +145,7 @@ class LayerAnalyzer:
                 f"Unknown analysis method: {method}. "
                 f"Available: {list(self.ANALYZERS.keys())}"
             )
-        analyzer = analyzer_class()
+        analyzer = analyzer_class(**method_params)
 
         # Collect activations for all layers at once (efficient!)
         self.logger.info(f"Collecting activations for {len(expanded_layers)} layers...")
@@ -153,12 +170,10 @@ class LayerAnalyzer:
                 results.append({"layer": layer_path, "metrics": metrics})
             except Exception as e:
                 self.logger.error(f"Failed to analyze layer {layer_path}: {e}")
-                results.append(
-                    {
-                        "layer": layer_path,
-                        "metrics": {"score": 0.0, "error": str(e)},
-                    }
-                )
+                results.append({
+                    "layer": layer_path,
+                    "metrics": {"score": 0.0, "error": str(e)},
+                })
 
         # Sort by score
         results.sort(key=lambda x: x["metrics"].get("score", 0.0), reverse=True)
@@ -182,7 +197,7 @@ class LayerAnalyzer:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             import json
 
-            with open(output_path, "w") as f:
+            with Path(output_path).open("w") as f:
                 json.dump(output_data, f, indent=2)
 
             self.logger.info(f"Results saved to {output_path}")
@@ -195,10 +210,10 @@ class LayerAnalyzer:
         self,
         model: nn.Module,
         tokenizer: AutoTokenizer,
-        layer_paths: List[str],
-        dataset: List[dict],
-        batch_size: Optional[int] = None,
-    ) -> Dict[str, Dict[str, List[torch.Tensor]]]:
+        layer_paths: list[str],
+        dataset: list[dict],
+        batch_size: int | None = None,
+    ) -> dict[str, dict[str, list[torch.Tensor]]]:
         """
         Collect activations for all layers at once (efficient single-pass).
 
@@ -242,8 +257,8 @@ class LayerAnalyzer:
                 act = output.detach().cpu()  # [B, T, H]
                 # Store each sample's last token activation
                 for i in range(act.shape[0]):
-                    if hasattr(hook, 'attention_mask'):
-                        mask = hook.attention_mask[i].cpu()
+                    if hasattr(hook, "attention_mask"):  # type: ignore[arg-type]
+                        mask = hook.attention_mask[i].cpu()  # type: ignore[union-attr]
                         real_positions = torch.where(mask == 1)[0]
                         if len(real_positions) > 0:
                             last_pos = real_positions[-1].item()
@@ -252,6 +267,7 @@ class LayerAnalyzer:
                     else:
                         last_pos = -1
                     activations_storage[layer_path].append(act[i, last_pos, :])
+
             return hook
 
         # Register hooks for all layers
@@ -263,19 +279,27 @@ class LayerAnalyzer:
 
         # Process positive samples in batches
         num_batches = (len(dataset) + batch_size - 1) // batch_size
-        for i in tqdm(range(0, len(dataset), batch_size), total=num_batches, desc="Positive batches", leave=False):
+        for i in tqdm(
+            range(0, len(dataset), batch_size),
+            total=num_batches,
+            desc="Positive batches",
+            leave=False,
+        ):
             batch = [dataset[j] for j in range(i, min(i + batch_size, len(dataset)))]
             prompts = []
             for item in batch:
                 situation = item.get("situation", item.get("question", ""))
-                prompt = tokenizer.apply_chat_template(
-                    [{"role": "user", "content": situation}],
-                    tokenize=False,
-                    add_generation_prompt=True,
-                ) + item["positive"]
+                prompt = (
+                    tokenizer.apply_chat_template(  # type: ignore[call-arg]
+                        [{"role": "user", "content": situation}],
+                        tokenize=False,
+                        add_generation_prompt=True,
+                    )
+                    + item["positive"]
+                )
                 prompts.append(prompt)
 
-            inputs = tokenizer(
+            inputs = tokenizer(  # type: ignore[call-arg]
                 prompts, return_tensors="pt", padding=True, truncation=True
             ).to(model.device)
 
@@ -307,19 +331,27 @@ class LayerAnalyzer:
             handles.append((handle, hook))
 
         # Process neutral samples in batches
-        for i in tqdm(range(0, len(dataset), batch_size), total=num_batches, desc="Neutral batches", leave=False):
+        for i in tqdm(
+            range(0, len(dataset), batch_size),
+            total=num_batches,
+            desc="Neutral batches",
+            leave=False,
+        ):
             batch = [dataset[j] for j in range(i, min(i + batch_size, len(dataset)))]
             prompts = []
             for item in batch:
                 situation = item.get("situation", item.get("question", ""))
-                prompt = tokenizer.apply_chat_template(
-                    [{"role": "user", "content": situation}],
-                    tokenize=False,
-                    add_generation_prompt=True,
-                ) + item["neutral"]
+                prompt = (
+                    tokenizer.apply_chat_template(  # type: ignore[call-arg]
+                        [{"role": "user", "content": situation}],
+                        tokenize=False,
+                        add_generation_prompt=True,
+                    )
+                    + item["neutral"]
+                )
                 prompts.append(prompt)
 
-            inputs = tokenizer(
+            inputs = tokenizer(  # type: ignore[call-arg]
                 prompts, return_tensors="pt", padding=True, truncation=True
             ).to(model.device)
 
@@ -338,7 +370,7 @@ class LayerAnalyzer:
             layer_activations[layer_path]["neutral"] = activations_storage[layer_path]
 
         self.logger.info(
-            f"Collected activations: {len(dataset)} samples × {len(layer_paths)} layers"
+            f"Collected activations: {len(dataset)} samples x {len(layer_paths)} layers"
         )
 
         return layer_activations
@@ -348,10 +380,10 @@ class LayerAnalyzer:
         model: nn.Module,
         tokenizer: AutoTokenizer,
         layer_path: str,
-        dataset: List[dict],
+        dataset: list[dict],
         analyzer,
-        batch_size: Optional[int] = None,
-    ) -> Dict[str, float]:
+        batch_size: int | None = None,
+    ) -> dict[str, float]:
         """
         Analyze a single layer.
 
@@ -384,13 +416,16 @@ class LayerAnalyzer:
             # Get situation/question field
             situation = item.get("situation", item.get("question", ""))
 
-            prompt = tokenizer.apply_chat_template(
-                [{"role": "user", "content": situation}],
-                tokenize=False,
-                add_generation_prompt=True,
-            ) + item["positive"]
+            prompt = (
+                tokenizer.apply_chat_template(  # type: ignore[call-arg]
+                    [{"role": "user", "content": situation}],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                + item["positive"]
+            )
 
-            inputs = tokenizer(
+            inputs = tokenizer(  # type: ignore[call-arg]
                 [prompt], return_tensors="pt", padding=True, truncation=True
             ).to(model.device)
 
@@ -410,13 +445,16 @@ class LayerAnalyzer:
             # Get situation/question field
             situation = item.get("situation", item.get("question", ""))
 
-            prompt = tokenizer.apply_chat_template(
-                [{"role": "user", "content": situation}],
-                tokenize=False,
-                add_generation_prompt=True,
-            ) + item["neutral"]
+            prompt = (
+                tokenizer.apply_chat_template(  # type: ignore[call-arg]
+                    [{"role": "user", "content": situation}],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                + item["neutral"]
+            )
 
-            inputs = tokenizer(
+            inputs = tokenizer(  # type: ignore[call-arg]
                 [prompt], return_tensors="pt", padding=True, truncation=True
             ).to(model.device)
 

@@ -1,4 +1,5 @@
 """Tests for ActivationHookManager padding handling."""
+
 import pytest
 import torch
 

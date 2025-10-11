@@ -1,7 +1,8 @@
 """Layer analysis commands."""
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional, Tuple
 
 import click
 from rich.console import Console
@@ -15,7 +16,9 @@ logger = get_logger("layer")
 
 
 @click.command()
-@click.option("--model", required=True, help="Model name (e.g., google/gemma-3-270m-it)")
+@click.option(
+    "--model", required=True, help="Model name (e.g., google/gemma-3-270m-it)"
+)
 @click.option(
     "--layer",
     multiple=True,
@@ -29,10 +32,15 @@ logger = get_logger("layer")
     "Example: --layers 'model.layers[*].mlp,model.layers[10:15].mlp.down_proj'",
 )
 @click.option(
-    "--dataset", required=True, type=click.Path(exists=True), help="Dataset directory path"
+    "--dataset",
+    required=True,
+    type=click.Path(exists=True),
+    help="Dataset directory path",
 )
 @click.option(
-    "--output", type=click.Path(), help="Output JSON file path (optional, skip if not provided)"
+    "--output",
+    type=click.Path(),
+    help="Output JSON file path (optional, skip if not provided)",
 )
 @click.option(
     "--method",
@@ -53,13 +61,13 @@ logger = get_logger("layer")
 )
 def analyze(
     model: str,
-    layer: Tuple[str],
-    layers: Optional[str],
+    layer: tuple[str],
+    layers: str | None,
     dataset: str,
     output: str,
     method: str,
     top_k: int,
-    batch_size: Optional[int],
+    batch_size: int | None,
 ):
     """
     Analyze layers to find optimal steering target layers.
@@ -126,7 +134,9 @@ def analyze(
 
     # Add layers from --layers (comma-separated)
     if layers:
-        layer_list.extend([l.strip() for l in layers.split(",") if l.strip()])
+        layer_list.extend([
+            layer_str.strip() for layer_str in layers.split(",") if layer_str.strip()
+        ])
 
     # Validate that at least one layer is specified
     if not layer_list:
@@ -136,7 +146,7 @@ def analyze(
 
     logger.info(f"Layer patterns ({len(layer_list)}): {layer_list}")
 
-    console.print(f"[blue]Analyzing layers...[/blue]")
+    console.print("[blue]Analyzing layers...[/blue]")
     console.print(f"Model: [cyan]{model}[/cyan]")
     console.print(f"Layer patterns ({len(layer_list)}):")
     for idx, layer_pattern in enumerate(layer_list, 1):
@@ -145,7 +155,7 @@ def analyze(
     if output:
         console.print(f"Output: [cyan]{output}[/cyan]")
     else:
-        console.print(f"Output: [dim](not saving to file)[/dim]")
+        console.print("Output: [dim](not saving to file)[/dim]")
     console.print(f"Method: [cyan]{method}[/cyan]")
     console.print(f"Top-K: [cyan]{top_k}[/cyan]")
     if batch_size:
@@ -164,13 +174,15 @@ def analyze(
             top_k=top_k,
         )
 
-        logger.info(f"Analysis completed successfully")
-        console.print(
-            f"\n[green]Analyzed {results['total_layers']} layers[/green]"
-        )
+        logger.info("Analysis completed successfully")
+        console.print(f"\n[green]Analyzed {results['total_layers']} layers[/green]")
 
         # Display top results in a table
-        table = Table(title=f"TOP {top_k} Layers (Best Separation)", show_header=True, header_style="bold magenta")
+        table = Table(
+            title=f"TOP {top_k} Layers (Best Separation)",
+            show_header=True,
+            header_style="bold magenta",
+        )
         table.add_column("Rank", style="dim", width=6)
         table.add_column("Layer", style="cyan")
         table.add_column("Score", justify="right", style="green")
@@ -185,10 +197,10 @@ def analyze(
 
             table.add_row(
                 str(i),
-                result['layer'],
+                result["layer"],
                 f"{score:.4f}",
                 f"{accuracy:.4f}",
-                f"{margin:.4f}"
+                f"{margin:.4f}",
             )
 
         console.print("\n")
@@ -196,7 +208,7 @@ def analyze(
         if output:
             console.print(f"\n[green]Results saved to: {output}[/green]")
         else:
-            console.print(f"\n[dim]Results not saved (no output path specified)[/dim]")
+            console.print("\n[dim]Results not saved (no output path specified)[/dim]")
 
     except Exception as e:
         logger.error(f"Failed to analyze layers: {e}")
