@@ -223,8 +223,9 @@ class DenoisedMeanDifferenceVectorExtractor(BaseVectorExtractor):
             PCA-denoised steering vector [D]
         """
         # Stack activations into matrices
-        pos_matrix = torch.vstack(positive_acts).cpu().numpy()  # [N_pos, D]
-        neu_matrix = torch.vstack(neutral_acts).cpu().numpy()  # [N_neu, D]
+        # Convert to float32 first (sklearn doesn't support bfloat16)
+        pos_matrix = torch.vstack(positive_acts).float().cpu().numpy()  # [N_pos, D]
+        neu_matrix = torch.vstack(neutral_acts).float().cpu().numpy()  # [N_neu, D]
 
         # Compute raw steering vector (mean difference)
         pos_mean = pos_matrix.mean(axis=0)  # [D]
