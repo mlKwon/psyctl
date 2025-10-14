@@ -135,12 +135,12 @@ def apply(
             console.print(result)
         except UnicodeEncodeError:
             # Fallback: replace problematic characters
-            safe_result = result.encode('utf-8', errors='replace').decode('utf-8')
+            safe_result = result.encode("utf-8", errors="replace").decode("utf-8")
             console.print(safe_result)
         console.print()
 
     except Exception as e:
         logger.error(f"Failed to apply steering vector: {e}")
-        error_msg = str(e).encode('utf-8', errors='replace').decode('utf-8')
+        error_msg = str(e).encode("utf-8", errors="replace").decode("utf-8")
         console.print(f"[red]Error: {error_msg}[/red]")
         raise

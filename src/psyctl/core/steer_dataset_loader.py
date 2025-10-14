@@ -1,11 +1,13 @@
 """Steering dataset loader for steering vector extraction."""
 
-import json
-from pathlib import Path
-from typing import Iterator, List, Tuple, Union
+from __future__ import annotations
 
-from datasets import load_dataset
-from jinja2 import Environment, FileSystemLoader, Template
+import json
+from collections.abc import Iterator
+from pathlib import Path
+
+from datasets import load_dataset  # type: ignore[import-not-found]
+from jinja2 import Environment, FileSystemLoader
 from transformers import AutoTokenizer
 
 from psyctl.core.logger import get_logger
@@ -37,7 +39,7 @@ class SteerDatasetLoader:
         self.jinja_env = Environment(loader=FileSystemLoader(str(template_dir)))
         self.logger.debug(f"Template directory: {template_dir}")
 
-    def load(self, dataset_path: Union[Path, str]) -> List[dict]:
+    def load(self, dataset_path: Path | str) -> list[dict]:
         """
         Load steering dataset from JSONL file or HuggingFace dataset.
 
@@ -57,25 +59,27 @@ class SteerDatasetLoader:
             >>> dataset = loader.load("CaveduckAI/steer-personality-rudeness-ko")
         """
         # Check if it's a HuggingFace dataset name
-        if isinstance(dataset_path, str) and '/' in dataset_path:
+        if isinstance(dataset_path, str) and "/" in dataset_path:
             self.logger.info(f"Loading HuggingFace dataset: {dataset_path}")
             try:
-                hf_dataset = load_dataset(dataset_path, split='train')
+                hf_dataset = load_dataset(dataset_path, split="train")
                 dataset = []
-                for item in hf_dataset:
+                for item in hf_dataset:  # type: ignore[attr-defined]
                     # Convert HF dataset format to steering dataset format
                     # Support both old (question) and new (situation) formats
                     entry = {
-                        'situation': item.get('situation', item.get('question', '')),
-                        'char_name': item.get('char_name', 'Assistant'),
-                        'positive': item.get('positive', ''),
-                        'neutral': item.get('neutral', '')
+                        "situation": item.get("situation", item.get("question", "")),  # type: ignore[union-attr]
+                        "char_name": item.get("char_name", "Assistant"),  # type: ignore[union-attr]
+                        "positive": item.get("positive", ""),  # type: ignore[union-attr]
+                        "neutral": item.get("neutral", ""),  # type: ignore[union-attr]
                     }
                     dataset.append(entry)
-                self.logger.info(f"Loaded {len(dataset)} entries from HuggingFace dataset")
+                self.logger.info(
+                    f"Loaded {len(dataset)} entries from HuggingFace dataset"
+                )
                 return dataset
             except Exception as e:
-                raise ValueError(f"Failed to load HuggingFace dataset: {e}")
+                raise ValueError(f"Failed to load HuggingFace dataset: {e}") from e
 
         # Convert string to Path for local files
         if isinstance(dataset_path, str):
@@ -102,40 +106,34 @@ class SteerDatasetLoader:
         self.logger.info(f"Loading dataset from: {dataset_file}")
 
         dataset = []
-        with open(dataset_file, 'r', encoding='utf-8') as f:
+        with Path(dataset_file).open("r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
                 try:
                     entry = json.loads(line.strip())
 
                     # Validate required fields
-                    required_fields = ['situation', 'char_name', 'positive', 'neutral']
+                    required_fields = ["situation", "char_name", "positive", "neutral"]
                     missing_fields = [
                         field for field in required_fields if field not in entry
                     ]
                     if missing_fields:
-                        raise ValueError(
-                            f"Missing required fields: {missing_fields}"
-                        )
+                        raise ValueError(f"Missing required fields: {missing_fields}")
 
                     dataset.append(entry)
 
                 except json.JSONDecodeError as e:
-                    self.logger.error(
-                        f"Invalid JSON at line {line_num}: {e}"
-                    )
+                    self.logger.error(f"Invalid JSON at line {line_num}: {e}")
                     raise ValueError(f"Invalid JSON format at line {line_num}") from e
                 except ValueError as e:
-                    self.logger.error(
-                        f"Invalid entry at line {line_num}: {e}"
-                    )
+                    self.logger.error(f"Invalid entry at line {line_num}: {e}")
                     raise
 
         self.logger.info(f"Loaded {len(dataset)} entries from dataset")
         return dataset
 
     def create_prompts(
-        self, dataset: List[dict], tokenizer: AutoTokenizer, format_type: str = "index"
-    ) -> Tuple[List[str], List[str]]:
+        self, dataset: list[dict], tokenizer: AutoTokenizer, format_type: str = "index"
+    ) -> tuple[list[str], list[str]]:
         """
         Create positive and neutral prompt pairs from dataset.
 
@@ -154,16 +152,18 @@ class SteerDatasetLoader:
             >>> dataset = loader.load(Path("./dataset/steering"))
             >>> pos_prompts, neu_prompts = loader.create_prompts(dataset, tokenizer)
         """
-        self.logger.info(f"Creating prompts from {len(dataset)} dataset entries (format: {format_type})")
+        self.logger.info(
+            f"Creating prompts from {len(dataset)} dataset entries (format: {format_type})"
+        )
 
         positive_prompts = []
         neutral_prompts = []
 
         for idx, entry in enumerate(dataset):
-            situation = entry['situation']
-            char_name = entry['char_name']
-            positive_answer = entry['positive']
-            neutral_answer = entry['neutral']
+            situation = entry["situation"]
+            char_name = entry["char_name"]
+            positive_answer = entry["positive"]
+            neutral_answer = entry["neutral"]
 
             # Create prompts based on format type
             if format_type == "index":
@@ -172,18 +172,38 @@ class SteerDatasetLoader:
                 if idx % 2 == 0:
                     # Even: positive=(1, neutral=(2
                     positive_prompt = self._build_prompt_with_choices(
-                        situation, char_name, positive_answer, neutral_answer, "(1", tokenizer
+                        situation,
+                        char_name,
+                        positive_answer,
+                        neutral_answer,
+                        "(1",
+                        tokenizer,
                     )
                     neutral_prompt = self._build_prompt_with_choices(
-                        situation, char_name, positive_answer, neutral_answer, "(2", tokenizer
+                        situation,
+                        char_name,
+                        positive_answer,
+                        neutral_answer,
+                        "(2",
+                        tokenizer,
                     )
                 else:
                     # Odd: positive=(2, neutral=(1 (swapped order)
                     positive_prompt = self._build_prompt_with_choices(
-                        situation, char_name, neutral_answer, positive_answer, "(2", tokenizer
+                        situation,
+                        char_name,
+                        neutral_answer,
+                        positive_answer,
+                        "(2",
+                        tokenizer,
                     )
                     neutral_prompt = self._build_prompt_with_choices(
-                        situation, char_name, neutral_answer, positive_answer, "(1", tokenizer
+                        situation,
+                        char_name,
+                        neutral_answer,
+                        positive_answer,
+                        "(1",
+                        tokenizer,
                     )
             elif format_type == "direct":
                 # BiPO format: direct answer without choices
@@ -205,8 +225,13 @@ class SteerDatasetLoader:
         return positive_prompts, neutral_prompts
 
     def _build_prompt_with_choices(
-        self, situation: str, char_name: str, answer_1: str, answer_2: str,
-        selected: str, tokenizer: AutoTokenizer
+        self,
+        situation: str,
+        char_name: str,
+        answer_1: str,
+        answer_2: str,
+        selected: str,
+        tokenizer: AutoTokenizer,
     ) -> str:
         """
         Build prompt with multiple choices for CAA extraction method.
@@ -231,18 +256,18 @@ class SteerDatasetLoader:
             the last token is from answer content, matching PoC behavior.
         """
         # Load template
-        template = self.jinja_env.get_template('md_question.j2')
+        template = self.jinja_env.get_template("md_question.j2")
         question = template.render(
             char_name=char_name,
             situation=situation.strip(),
             answer_1=answer_1.strip().replace("\n", ""),
-            answer_2=answer_2.strip().replace("\n", "")
+            answer_2=answer_2.strip().replace("\n", ""),
         )
 
         # Apply chat template WITHOUT answer (add_generation_prompt=True)
         try:
             messages = [{"role": "user", "content": question}]
-            prompt = tokenizer.apply_chat_template(
+            prompt = tokenizer.apply_chat_template(  # type: ignore[call-arg]
                 messages,
                 tokenize=False,
                 add_generation_prompt=True,  # Add <start_of_turn>model section
@@ -285,7 +310,7 @@ class SteerDatasetLoader:
         # Apply chat template WITHOUT answer (add_generation_prompt=True)
         try:
             messages = [{"role": "user", "content": question}]
-            prompt = tokenizer.apply_chat_template(
+            prompt = tokenizer.apply_chat_template(  # type: ignore[call-arg]
                 messages,
                 tokenize=False,
                 add_generation_prompt=True,  # Add <start_of_turn>model section
@@ -300,8 +325,8 @@ class SteerDatasetLoader:
         return prompt
 
     def get_batch_iterator(
-        self, prompts: List[str], batch_size: int
-    ) -> Iterator[List[str]]:
+        self, prompts: list[str], batch_size: int
+    ) -> Iterator[list[str]]:
         """
         Create batch iterator for prompts.
 
@@ -351,7 +376,7 @@ class SteerDatasetLoader:
             raise FileNotFoundError(f"Dataset file not found: {dataset_file}")
 
         # Count lines for num_samples
-        with open(dataset_file, 'r', encoding='utf-8') as f:
+        with Path(dataset_file).open("r", encoding="utf-8") as f:
             num_samples = sum(1 for _ in f)
 
         # Get file size
@@ -359,10 +384,10 @@ class SteerDatasetLoader:
         file_size_mb = file_size_bytes / (1024 * 1024)
 
         info = {
-            'file_path': str(dataset_file),
-            'num_samples': num_samples,
-            'file_size_bytes': file_size_bytes,
-            'file_size_mb': round(file_size_mb, 2),
+            "file_path": str(dataset_file),
+            "num_samples": num_samples,
+            "file_size_bytes": file_size_bytes,
+            "file_size_mb": round(file_size_mb, 2),
         }
 
         self.logger.debug(f"Dataset info: {info}")
@@ -391,7 +416,7 @@ class SteerDatasetLoader:
 
             # Check first entry structure
             first_entry = dataset[0]
-            required_fields = ['situation', 'char_name', 'positive', 'neutral']
+            required_fields = ["situation", "char_name", "positive", "neutral"]
             for field in required_fields:
                 if field not in first_entry:
                     self.logger.error(f"Missing required field: {field}")

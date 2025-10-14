@@ -1,7 +1,5 @@
 """IPIP-NEO inventory implementation."""
 
-from typing import Any, Dict, List
-
 
 class IPIPNEO:
     """IPIP-NEO (International Personality Item Pool - NEO) inventory."""
@@ -50,11 +48,11 @@ class IPIPNEO:
             ],
         }
 
-    def get_questions(self) -> Dict[str, List[str]]:
+    def get_questions(self) -> dict[str, list[str]]:
         """Get all questions organized by domain."""
         return self.questions.copy()
 
-    def calculate_scores(self, responses: Dict[str, List[int]]) -> Dict[str, float]:
+    def calculate_scores(self, responses: dict[str, list[int]]) -> dict[str, float]:
         """Calculate personality scores from responses."""
         # TODO: Implement proper scoring algorithm
         scores = {}

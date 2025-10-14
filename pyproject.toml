@@ -2,37 +2,38 @@
 name = "psyctl"
 version = "0.1.0"
 description = "LLM Personality Steering Tool"
-authors = [ {name = "Rick Choi", email = "rick@caveduck.io"}, 
-            {name = "Dohoon Kwon", email = "lk38ll@gmail.com"},
-            {name = "Changhoon Lee", email = "ggomaseein@gmail.com"}
-          ]
+authors = [
+    { name = "Rick Choi", email = "rick@caveduck.io" },
+    { name = "Dohoon Kwon", email = "lk38ll@gmail.com" },
+    { name = "Changhoon Lee", email = "ggomaseein@gmail.com" },
+    { name = "cognitive-glitch", email = "drivedon02@gmail.com" },
+]
 readme = "README.md"
-requires-python = ">=3.9"
-packages = [{include = "psyctl", from = "src"}]
+requires-python = ">=3.11"
+packages = [{ include = "psyctl", from = "src" }]
 dependencies = [
-    "click>=8.0.0", # CLI 프레임워크
-    "rich>=13.0.0", # 터미널 출력 개선
-    "torch>=2.7.0", # PyTorch with CUDA support
-    "transformers>=4.55.4", # Hugging Face Transformers
-    "safetensors>=0.3.0", # SafeTensors
-    "datasets>=2.10.0", # Hugging Face Datasets
-    "numpy>=1.24.0", # NumPy
-    "pandas>=2.0.0", # Pandas
-    "scikit-learn>=1.3.0", # Scikit-learn
-    "accelerate>=1.10.0", # Hugging Face Accelerate
+    "click>=8.3.0",         # CLI 프레임워크
+    "rich>=14.0.0",         # 터미널 출력 개선
+    "torch>=2.7.0",         # PyTorch with CUDA support
+    "transformers>=4.56.0", # Hugging Face Transformers
+    "tokenizers>=0.20.0",   # Hugging Face Tokenizers
+    "safetensors>=0.6.2",   # SafeTensors
+    "datasets>=4.2.0",      # Hugging Face Datasets
+    "numpy>=2.0",           # NumPy
+    "pandas>=2.0",          # Pandas
+    "scikit-learn>=1.5",    # Scikit-learn
+    "accelerate>=1.10.0",   # Hugging Face Accelerate
     "python-dotenv>=1.0.0", # Environment variable management
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
+    "pytest>=8.0",
+    "pytest-cov>=7.0",
+    "pytest-mock>=3.15",
     "pytest-pdb>=0.2.0",
-    "black>=23.0.0",
-    "isort>=5.0.0",
-    "flake8>=6.0.0",
-    "mypy>=1.0.0",
+    "ruff>=0.14.0",      # Modern linter and formatter (replaces black, isort, flake8)
+    "pyright>=1.1.406",  # Static type checker (replaces mypy)
     "jupyter>=1.0.0",
 ]
 
@@ -46,46 +47,88 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/psyctl"]
 
-[tool.black]
+# Ruff configuration (replaces black, isort, flake8)
+[tool.ruff]
 line-length = 88
-target-version = ['py39']
+target-version = "py311"
+src = ["src", "tests"]
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
+# Enable preview features for latest improvements
+preview = true
 
-[tool.mypy]
-python_version = "3.9"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
+[tool.ruff.lint]
+# Enable comprehensive rule sets
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "PERF", # flake8-performance
+    "RUF",  # Ruff-specific rules
+]
+
+# Ignore specific rules that conflict with our style
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "B905",  # zip() without strict parameter
+    "N812",  # Lowercase imported as non-lowercase (for torch.nn as nn)
+    "UP007", # Use X | Y for type annotations (Python 3.11 with future annotations)
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["psyctl"]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+# Pyright configuration (strict mode)
+[tool.pyright]
+# Target Python version
+pythonVersion = "3.11"
+
+# Include/exclude patterns
+include = ["src"]
+exclude = [
+    "**/__pycache__",
+    ".venv",
+    "temp",
+    "dataset",
+    "steering_vector",
+    "results",
+]
+
+# Type checking mode
+typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-]
-addopts = [
-    "--tb=short",
-    "--strict-markers",
-    "--disable-warnings"
-]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
+addopts = ["--tb=short", "--strict-markers", "--disable-warnings"]
 
 [dependency-groups]
 dev = [
-    "black>=25.1.0",
-    "flake8>=7.3.0",
-    "isort>=6.0.1",
-    "jupyter>=1.1.1",
-    "mypy>=1.17.1",
+    "ruff>=0.8.4",
+    "pyright>=1.1.390",
     "pytest>=8.4.1",
-    "pytest-cov>=6.2.1",
+    "pytest-cov>=7.0.0",
     "pytest-mock>=3.14.1",
+    "jupyter>=1.1.1",
+    "pre-commit>=4.0.0",
 ]
 
 [tool.uv.sources]
 # Linux/Windows에만 CUDA 12.6 휠을 사용, macOS는 PyPI로 폴백
 torch = [
-  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [[tool.uv.index]]

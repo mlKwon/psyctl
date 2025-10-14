@@ -6,9 +6,10 @@ for generating personality-specific character descriptions without requiring
 local model loading.
 """
 
-from typing import Tuple
-from psyctl.models.openrouter_client import OpenRouterClient
+from __future__ import annotations
+
 from psyctl.core.logger import get_logger
+from psyctl.models.openrouter_client import OpenRouterClient
 
 
 class P2OpenRouter:
@@ -60,13 +61,17 @@ class P2OpenRouter:
         self.logger.debug(f"Using model: {self.model}")
 
         # Step 1: Generate keywords related to personality trait
-        keywords_prompt = f"Words related to {personality_trait}? (format: Comma separated words)"
+        keywords_prompt = (
+            f"Words related to {personality_trait}? (format: Comma separated words)"
+        )
         self.logger.debug(f"Keywords prompt: {keywords_prompt}")
         _, keywords = self._get_result(keywords_prompt)
         self.logger.debug(f"Generated keywords: {keywords}")
 
         # Step 2: Generate personality description using keywords
-        personality_prompt = f"{keywords} are traits of {char_name}.\n\nDescribe about {char_name}"
+        personality_prompt = (
+            f"{keywords} are traits of {char_name}.\n\nDescribe about {char_name}"
+        )
         prefill = f"Here's a description of {char_name}, built from the traits suggested by the list:"
         self.logger.debug(f"Personality prompt: {personality_prompt}")
         self.logger.debug(f"Prefill: {prefill}")
@@ -81,7 +86,7 @@ class P2OpenRouter:
 
         return self.personality
 
-    def _get_result(self, prompt: str, prefill: str = None) -> Tuple[str, str]:
+    def _get_result(self, prompt: str, prefill: str | None = None) -> tuple[str, str]:
         """
         Get result from OpenRouter API.
 
@@ -98,7 +103,7 @@ class P2OpenRouter:
             full_prompt = f"{prompt}\n\n{prefill}"
 
         try:
-            gen_id, output_text = self.client.generate(
+            _gen_id, output_text = self.client.generate(
                 prompt=full_prompt,
                 model=self.model,
                 max_tokens=100,
@@ -107,11 +112,7 @@ class P2OpenRouter:
 
             # If prefill was used, the output already contains it
             # We want to return just the continuation
-            if prefill:
-                # The API should continue from the prefill
-                result = output_text
-            else:
-                result = output_text
+            result = output_text  # Same result regardless of prefill
 
             return full_prompt, result.strip()
 
@@ -123,7 +124,8 @@ class P2OpenRouter:
 # Example usage
 if __name__ == "__main__":
     import os
-    from dotenv import load_dotenv
+
+    from dotenv import load_dotenv  # type: ignore[import-not-found]
 
     load_dotenv(override=True)
 

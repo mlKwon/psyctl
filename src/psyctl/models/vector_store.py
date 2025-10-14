@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 from safetensors.torch import load_file, save_file
@@ -17,7 +17,7 @@ class VectorStore:
         self.logger = get_logger("vector_store")
 
     def save_steering_vector(
-        self, vector: torch.Tensor, metadata: Dict[str, Any], filepath: Path
+        self, vector: torch.Tensor, metadata: dict[str, Any], filepath: Path
     ) -> None:
         """
         Save single steering vector with metadata (legacy method).
@@ -49,9 +49,9 @@ class VectorStore:
 
     def save_multi_layer(
         self,
-        vectors: Dict[str, torch.Tensor],
+        vectors: dict[str, torch.Tensor],
         output_path: Path,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> None:
         """
         Save multiple steering vectors to single safetensors file.
@@ -115,7 +115,7 @@ class VectorStore:
 
     def load_steering_vector(
         self, filepath: Path
-    ) -> tuple[torch.Tensor, Dict[str, Any]]:
+    ) -> tuple[torch.Tensor, dict[str, Any]]:
         """
         Load steering vector and metadata (legacy method).
 
@@ -142,7 +142,7 @@ class VectorStore:
             self.logger.debug(f"Loaded metadata: {metadata}")
             self.logger.success(f"Steering vector loaded successfully from {filepath}")
 
-            return vector, metadata
+            return vector, metadata  # type: ignore[return-value]
 
         except Exception as e:
             self.logger.error(f"Failed to load steering vector: {e}")
@@ -150,7 +150,7 @@ class VectorStore:
 
     def load_multi_layer(
         self, filepath: Path
-    ) -> tuple[Dict[str, torch.Tensor], Dict[str, Any]]:
+    ) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
         """
         Load multiple steering vectors from safetensors file.
 
@@ -178,7 +178,6 @@ class VectorStore:
 
             # Extract metadata from safetensors
             # Note: safetensors stores metadata separately, we need to load it differently
-            import json
 
             from safetensors import safe_open
 

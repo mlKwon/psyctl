@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, List
 
 import torch
 from torch import nn
@@ -22,10 +21,10 @@ class BaseVectorExtractor(ABC):
         self,
         model: nn.Module,
         tokenizer: AutoTokenizer,
-        layers: List[str],
+        layers: list[str],
         dataset_path: Path,
         **kwargs,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Extract steering vectors from specified layers.
 

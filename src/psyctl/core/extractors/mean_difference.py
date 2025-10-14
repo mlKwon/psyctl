@@ -1,7 +1,8 @@
 """Mean Difference Activation Vector extractor."""
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 import torch
 from torch import nn
@@ -9,11 +10,11 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from psyctl.config import INFERENCE_BATCH_SIZE
-from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 from psyctl.core.extractors.base import BaseVectorExtractor
 from psyctl.core.hook_manager import ActivationHookManager
 from psyctl.core.layer_accessor import LayerAccessor
 from psyctl.core.logger import get_logger
+from psyctl.core.steer_dataset_loader import SteerDatasetLoader
 
 
 class MeanDifferenceActivationVectorExtractor(BaseVectorExtractor):
@@ -47,13 +48,13 @@ class MeanDifferenceActivationVectorExtractor(BaseVectorExtractor):
         self,
         model: nn.Module,
         tokenizer: AutoTokenizer,
-        layers: List[str],
-        dataset_path: Optional[Union[Path, str]] = None,
-        dataset: Optional[List[dict]] = None,
-        batch_size: int = None,
+        layers: list[str],
+        dataset_path: Path | str | None = None,
+        dataset: list[dict] | None = None,
+        batch_size: int | None = None,
         normalize: bool = False,
         **kwargs,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Extract steering vectors from multiple layers simultaneously.
 
@@ -99,7 +100,9 @@ class MeanDifferenceActivationVectorExtractor(BaseVectorExtractor):
         """
         # Validate dataset parameters
         if dataset is not None and dataset_path is not None:
-            raise ValueError("Cannot provide both 'dataset' and 'dataset_path'. Choose one.")
+            raise ValueError(
+                "Cannot provide both 'dataset' and 'dataset_path'. Choose one."
+            )
         if dataset is None and dataset_path is None:
             raise ValueError("Must provide either 'dataset' or 'dataset_path'.")
 
@@ -119,7 +122,7 @@ class MeanDifferenceActivationVectorExtractor(BaseVectorExtractor):
         # 2. Load dataset if not provided
         if dataset is None:
             self.logger.info("Loading dataset...")
-            dataset = self.dataset_loader.load(dataset_path)
+            dataset = self.dataset_loader.load(dataset_path)  # type: ignore[arg-type]
         else:
             self.logger.info("Using pre-loaded dataset...")
 
@@ -194,8 +197,8 @@ class MeanDifferenceActivationVectorExtractor(BaseVectorExtractor):
         self,
         model: nn.Module,
         tokenizer: AutoTokenizer,
-        layer_modules: Dict[str, nn.Module],
-        prompts: List[str],
+        layer_modules: dict[str, nn.Module],
+        prompts: list[str],
         batch_size: int,
         suffix: str,
     ) -> None:
@@ -229,7 +232,7 @@ class MeanDifferenceActivationVectorExtractor(BaseVectorExtractor):
                     total=num_batches,
                 ):
                     # Tokenize batch with padding
-                    inputs = tokenizer(
+                    inputs = tokenizer(  # type: ignore[call-arg]
                         batch_prompts,
                         return_tensors="pt",
                         padding=True,
@@ -243,7 +246,7 @@ class MeanDifferenceActivationVectorExtractor(BaseVectorExtractor):
 
                     # Set attention mask before forward pass
                     # This allows hooks to find the last REAL token (not padding)
-                    self.hook_manager.set_attention_mask(inputs['attention_mask'])
+                    self.hook_manager.set_attention_mask(inputs["attention_mask"])
 
                     # Forward pass (hooks will collect activations)
                     _ = model(**inputs)

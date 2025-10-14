@@ -1,6 +1,6 @@
 """Activation hook manager for collecting model activations."""
 
-from typing import Callable, Dict, Optional
+from collections.abc import Callable
 
 import torch
 from torch import nn
@@ -27,10 +27,10 @@ class ActivationHookManager:
 
     def __init__(self):
         """Initialize ActivationHookManager with empty state."""
-        self.hooks: Dict[str, torch.utils.hooks.RemovableHandle] = {}
-        self.activations: Dict[str, Dict] = {}
+        self.hooks: dict[str, torch.utils.hooks.RemovableHandle] = {}
+        self.activations: dict[str, dict] = {}
         self.logger = get_logger("hook_manager")
-        self._attention_mask: Optional[torch.Tensor] = None
+        self._attention_mask: torch.Tensor | None = None
 
     def set_attention_mask(self, attention_mask: torch.Tensor) -> None:
         """
@@ -86,7 +86,7 @@ class ActivationHookManager:
             raise ValueError(f"Sample {sample_idx} is entirely padding")
 
         # Get the last real position (highest index)
-        last_position = real_positions[-1].item()
+        last_position = int(real_positions[-1].item())
         return last_position
 
     def collect_activation(self, layer_name: str) -> Callable:
@@ -126,7 +126,7 @@ class ActivationHookManager:
 
             # Initialize storage for this layer if needed
             if layer_name not in self.activations:
-                self.activations[layer_name] = {'sum': None, 'count': 0}
+                self.activations[layer_name] = {"sum": None, "count": 0}
 
             # Process each sample in batch
             batch_size = activations.shape[0]
@@ -149,16 +149,16 @@ class ActivationHookManager:
                 vec = activations[i, last_pos, :]
 
                 # Update incremental sum
-                if self.activations[layer_name]['sum'] is None:
-                    self.activations[layer_name]['sum'] = vec.clone()
+                if self.activations[layer_name]["sum"] is None:
+                    self.activations[layer_name]["sum"] = vec.clone()
                 else:
-                    self.activations[layer_name]['sum'] += vec
+                    self.activations[layer_name]["sum"] += vec
 
-                self.activations[layer_name]['count'] += 1
+                self.activations[layer_name]["count"] += 1
 
         return hook
 
-    def register_hooks(self, layers: Dict[str, nn.Module]) -> None:
+    def register_hooks(self, layers: dict[str, nn.Module]) -> None:
         """
         Register forward hooks on multiple layers.
 
@@ -206,7 +206,7 @@ class ActivationHookManager:
         self.hooks.clear()
         self.logger.debug("All hooks removed")
 
-    def get_mean_activations(self) -> Dict[str, torch.Tensor]:
+    def get_mean_activations(self) -> dict[str, torch.Tensor]:
         """
         Calculate and return mean activations for all layers.
 
@@ -228,13 +228,13 @@ class ActivationHookManager:
         mean_activations = {}
 
         for layer_name, stats in self.activations.items():
-            if stats['sum'] is None or stats['count'] == 0:
+            if stats["sum"] is None or stats["count"] == 0:
                 self.logger.warning(
                     f"Layer '{layer_name}' has no activations collected"
                 )
                 continue
 
-            mean_act = stats['sum'] / stats['count']
+            mean_act = stats["sum"] / stats["count"]
             mean_activations[layer_name] = mean_act
 
             self.logger.debug(
@@ -258,7 +258,7 @@ class ActivationHookManager:
         self.activations.clear()
         self._attention_mask = None
 
-    def get_activation_stats(self) -> Dict[str, Dict]:
+    def get_activation_stats(self) -> dict[str, dict]:
         """
         Get statistics about collected activations.
 
@@ -274,13 +274,13 @@ class ActivationHookManager:
 
         for layer_name, data in self.activations.items():
             layer_stats = {
-                'count': data['count'],
-                'shape': list(data['sum'].shape) if data['sum'] is not None else None,
+                "count": data["count"],
+                "shape": list(data["sum"].shape) if data["sum"] is not None else None,
             }
 
-            if data['sum'] is not None and data['count'] > 0:
-                mean = data['sum'] / data['count']
-                layer_stats['mean_norm'] = mean.norm().item()
+            if data["sum"] is not None and data["count"] > 0:
+                mean = data["sum"] / data["count"]
+                layer_stats["mean_norm"] = mean.norm().item()
 
             stats[layer_name] = layer_stats
 
@@ -288,5 +288,5 @@ class ActivationHookManager:
 
     def __del__(self):
         """Cleanup: ensure all hooks are removed when object is destroyed."""
-        if hasattr(self, 'hooks') and self.hooks:
+        if hasattr(self, "hooks") and self.hooks:
             self.remove_all_hooks()
