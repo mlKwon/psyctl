@@ -265,7 +265,7 @@ class DatasetBuilder:
         )
         return self.build_steer_dataset(*args, **kwargs)
 
-    def _load_model(self, model_name: str) -> None:
+    def _load_model(self, model_name: str, dtype: str = None) -> None:
         """
         Load model and tokenizer from Hugging Face.
 
@@ -275,7 +275,7 @@ class DatasetBuilder:
         Raises:
             Exception: If model loading fails
         """
-        self.model, self.tokenizer = self.llm_loader.load_model(model_name)
+        self.model, self.tokenizer = self.llm_loader.load_model(model_name, None, dtype)
         self.logger.info(f"Loaded model: {model_name}")
         self.logger.info(f"Loaded tokenizer: {model_name}")
 
