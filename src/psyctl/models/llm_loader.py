@@ -40,9 +40,9 @@ class LLMLoader:
 
         if dtype is None:
             dtype = 'auto'
-            trust_remote_code=False
+            trust_remote_code = False
         else:
-            trust_remote_code=True
+            trust_remote_code = True
 
         try:
             # Load tokenizer
