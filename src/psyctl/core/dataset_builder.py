@@ -150,6 +150,7 @@ class DatasetBuilder:
         top_k: int | None = None,
         top_p: float | None = None,
         max_tokens: int = 100,
+        dtype: str = None,
     ) -> Path:
         """
         Build steering dataset for given personality traits.
@@ -229,7 +230,7 @@ class DatasetBuilder:
                 )
             else:
                 self.active_model = model
-                self._load_model(model)
+                self._load_model(model, dtype=dtype)
                 assert self.model is not None and self.tokenizer is not None
                 self.p2 = P2(self.model, self.tokenizer)
 

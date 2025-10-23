@@ -424,7 +424,7 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             ratio_neg = log_prob_neg_steered - log_prob_neg_orig
 
             logits = d * beta * (ratio_pos - ratio_neg)
-            loss = -torch.log(torch.sigmoid(logits))
+            loss = -torch.nn.functional.logsigmoid(logits)
 
             total_loss = loss if total_loss is None else total_loss + loss
 
