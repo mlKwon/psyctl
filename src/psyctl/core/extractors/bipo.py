@@ -459,11 +459,12 @@ class BiPOVectorExtractor(BaseVectorExtractor):
             Sum of log probabilities for response tokens
         """
         # Build prompt: situation + question + full answer
-        question_text = f"[Situation]\n{situation}\n[Question]\nYou are {char_name}. What would your response be in this situation?\n[Answer]\n"
+        # question_text = f"[Situation]\n{situation}\n[Question]\nYou are {char_name}. What would your response be in this situation?\n[Answer]\n"
+        question_text = f"{situation}"
 
         # Apply chat template
-        question_text = self._format_with_chat_template(tokenizer, question_text)
-        full_text = question_text + response
+        # question_text = self._format_with_chat_template(tokenizer, question_text)
+        full_text = question_text + ' ' + response
 
         tokens = tokenizer(  # type: ignore[call-arg]
             full_text, return_tensors="pt", max_length=512, truncation=True
